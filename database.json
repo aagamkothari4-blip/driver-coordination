@@ -1,107 +1,116 @@
 {
   "users": [
     {
-      "id": "9cc91801-f691-4c8f-b0c3-54a77e5d8132",
+      "id": "manager-001",
       "role": "manager",
       "name": "Demo Manager",
       "phone": "9876543210",
-      "password": "demo123",
-      "created_at": "2026-05-01T19:28:37.018Z"
+      "email": "manager@demo.com",
+      "password_hash": "demo123"
     },
     {
-      "id": "8cd947fb-3935-43c3-bf8b-6954f9933bd2",
+      "id": "driver-001",
       "role": "driver",
       "name": "Rajesh Kumar",
       "phone": "9876543201",
-      "password": "driver123",
-      "created_at": "2026-05-01T19:28:37.019Z"
+      "password_hash": "driver123"
     },
     {
-      "id": "f86592a5-0424-48b9-a422-2762296bb578",
+      "id": "driver-002",
       "role": "driver",
       "name": "Amit Sharma",
       "phone": "9876543202",
-      "password": "driver123",
-      "created_at": "2026-05-01T19:28:37.019Z"
+      "password_hash": "driver123"
     },
     {
-      "id": "a6edcce6-d08d-4e5f-8ad0-42ab2a4c378b",
+      "id": "driver-003",
       "role": "driver",
       "name": "Priya Patel",
       "phone": "9876543203",
-      "password": "driver123",
-      "created_at": "2026-05-01T19:28:37.019Z"
+      "password_hash": "driver123"
     },
     {
-      "id": "5c6c0601-2cbd-4e94-9b0b-c1bdb340628f",
+      "id": "driver-004",
       "role": "driver",
       "name": "Suresh Yadav",
       "phone": "9876543204",
-      "password": "driver123",
-      "created_at": "2026-05-01T19:28:37.019Z"
+      "password_hash": "driver123"
     },
     {
-      "id": "75e17dd4-816f-4223-9228-c8e43476f401",
+      "id": "driver-005",
       "role": "driver",
       "name": "Neha Singh",
       "phone": "9876543205",
-      "password": "driver123",
-      "created_at": "2026-05-01T19:28:37.019Z"
+      "password_hash": "driver123"
     }
   ],
   "drivers": [
     {
-      "id": "f3d784b8-ea82-48f3-9147-121701746e56",
-      "user_id": "8cd947fb-3935-43c3-bf8b-6954f9933bd2",
-      "availability_status": "online",
-      "current_lat": 18.51664165494504,
-      "current_lng": 73.85499802216516,
-      "acceptance_rate": 1,
+      "id": "driver-001",
+      "name": "Rajesh Kumar",
+      "phone": "9876543201",
+      "availability_status": "offline",
+      "current_lat": 18.5204,
+      "current_lng": 73.8567,
+      "acceptance_rate": 1.0,
       "total_jobs": 0,
-      "average_rating": 0
+      "total_jobs_completed": 0,
+      "average_rating": 0,
+      "today_earnings": 0
     },
     {
-      "id": "89bcab48-3d92-4028-9c18-d0de9df0e0cf",
-      "user_id": "f86592a5-0424-48b9-a422-2762296bb578",
-      "availability_status": "online",
-      "current_lat": 18.53326577015629,
-      "current_lng": 73.84185783481249,
-      "acceptance_rate": 0,
+      "id": "driver-002",
+      "name": "Amit Sharma",
+      "phone": "9876543202",
+      "availability_status": "offline",
+      "current_lat": 18.5354,
+      "current_lng": 73.8567,
+      "acceptance_rate": 1.0,
       "total_jobs": 0,
-      "average_rating": 0
+      "total_jobs_completed": 0,
+      "average_rating": 0,
+      "today_earnings": 0
     },
     {
-      "id": "609d9458-4102-4ebe-b659-3b64bf3ed998",
-      "user_id": "a6edcce6-d08d-4e5f-8ad0-42ab2a4c378b",
-      "availability_status": "online",
-      "current_lat": 18.506925438675573,
-      "current_lng": 73.80703886874126,
-      "acceptance_rate": 0,
+      "id": "driver-003",
+      "name": "Priya Patel",
+      "phone": "9876543203",
+      "availability_status": "offline",
+      "current_lat": 18.4804,
+      "current_lng": 73.8567,
+      "acceptance_rate": 1.0,
       "total_jobs": 0,
-      "average_rating": 0
+      "total_jobs_completed": 0,
+      "average_rating": 0,
+      "today_earnings": 0
     },
     {
-      "id": "42f7a3bd-ebe5-4f59-80df-dc5cb067f52e",
-      "user_id": "5c6c0601-2cbd-4e94-9b0b-c1bdb340628f",
-      "availability_status": "online",
-      "current_lat": 18.534113574167186,
-      "current_lng": 73.89370504804681,
-      "acceptance_rate": 1,
+      "id": "driver-004",
+      "name": "Suresh Yadav",
+      "phone": "9876543204",
+      "availability_status": "offline",
+      "current_lat": 18.5204,
+      "current_lng": 73.9367,
+      "acceptance_rate": 1.0,
       "total_jobs": 0,
-      "average_rating": 0
+      "total_jobs_completed": 0,
+      "average_rating": 0,
+      "today_earnings": 0
     },
     {
-      "id": "b4055513-4730-4e03-8f9e-b064269585e1",
-      "user_id": "75e17dd4-816f-4223-9228-c8e43476f401",
-      "availability_status": "online",
-      "current_lat": 18.4929,
-      "current_lng": 73.8278,
-      "acceptance_rate": 0,
+      "id": "driver-005",
+      "name": "Neha Singh",
+      "phone": "9876543205",
+      "availability_status": "offline",
+      "current_lat": 18.5204,
+      "current_lng": 73.7767,
+      "acceptance_rate": 1.0,
       "total_jobs": 0,
-      "average_rating": 0
+      "total_jobs_completed": 0,
+      "average_rating": 0,
+      "today_earnings": 0
     }
   ],
-  "jobs": [
-      ],
-  "payments":[]
+  "jobs": [],
+  "payments": []
 }
