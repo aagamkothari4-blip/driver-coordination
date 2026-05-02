@@ -550,6 +550,9 @@
       // Load driver stats
       loadDriverStats();
       
+      // Check for active job (in case driver refreshed or logged back in)
+      loadActiveJob();
+      
       // Load available jobs
       loadAvailableJobs();
 
@@ -566,6 +569,50 @@
           loadAvailableJobs();
         }
       }, 10000);
+    }
+    
+    async function loadActiveJob() {
+      try {
+        // Check if this driver has any active jobs
+        const response = await fetch(`${API_URL}/api/jobs?status=assigned`);
+        const assignedJobs = await response.json();
+        
+        // Find job assigned to this driver
+        let myJob = assignedJobs.find(j => j.driver_id === currentDriver.id);
+        
+        // Also check in_progress jobs
+        if (!myJob) {
+          const progressResponse = await fetch(`${API_URL}/api/jobs?status=in_progress`);
+          const progressJobs = await progressResponse.json();
+          myJob = progressJobs.find(j => j.driver_id === currentDriver.id);
+          
+          if (myJob) {
+            jobStatus = 'in_progress';
+          }
+        } else {
+          jobStatus = 'assigned';
+        }
+        
+        if (myJob) {
+          // Restore active job
+          activeJob = {
+            id: myJob.id,
+            pickup_address: myJob.pickup_address,
+            pickup_lat: myJob.pickup_lat,
+            pickup_lng: myJob.pickup_lng,
+            dropoff_address: myJob.dropoff_address,
+            dropoff_lat: myJob.dropoff_lat,
+            dropoff_lng: myJob.dropoff_lng,
+            estimated_distance: myJob.estimated_distance_km || myJob.estimated_distance,
+            estimated_earnings: Math.round((myJob.estimated_distance_km || myJob.estimated_distance) * 50)
+          };
+          
+          showActiveJob();
+          console.log('Restored active job:', activeJob.id);
+        }
+      } catch (error) {
+        console.error('Failed to load active job:', error);
+      }
     }
     
     function logout() {
@@ -595,11 +642,20 @@
     }
     
     async function loadAvailableJobs() {
+      const listEl = document.getElementById('availableJobsList');
+      
       try {
         const response = await fetch(`${API_URL}/api/jobs?status=pending`);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
         const jobs = await response.json();
         
-        const listEl = document.getElementById('availableJobsList');
+        if (!Array.isArray(jobs)) {
+          throw new Error('Invalid response format');
+        }
         
         if (jobs.length === 0) {
           listEl.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">No jobs available right now</p>';
@@ -651,6 +707,13 @@
         listEl.innerHTML = html;
       } catch (error) {
         console.error('Failed to load available jobs:', error);
+        // Show error message to user
+        listEl.innerHTML = `
+          <p style="color: #999; text-align: center; padding: 20px;">
+            Unable to load jobs<br>
+            <small style="color: #666;">Check your internet connection</small>
+          </p>
+        `;
       }
     }
     
