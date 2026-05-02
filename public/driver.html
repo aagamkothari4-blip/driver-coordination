@@ -535,9 +535,28 @@
       // Initialize WebSocket
       ws = new WebSocket(`${WS_URL}?userId=${currentDriver.id}`);
       
+      ws.onopen = () => {
+        console.log('✅ WebSocket connected:', WS_URL);
+      };
+      
+      ws.onerror = (error) => {
+        console.error('❌ WebSocket error:', error);
+      };
+      
+      ws.onclose = () => {
+        console.log('⚠️ WebSocket disconnected');
+        // Try to reconnect after 5 seconds
+        setTimeout(() => {
+          if (currentDriver && document.getElementById('driverApp').classList.contains('hidden') === false) {
+            console.log('🔄 Attempting to reconnect WebSocket...');
+            ws = new WebSocket(`${WS_URL}?userId=${currentDriver.id}`);
+          }
+        }, 5000);
+      };
+      
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        console.log('WebSocket message:', data);
+        console.log('📨 WebSocket message:', data);
         
         if (data.type === 'JOB_NOTIFICATION') {
           showJobNotification(data.job, data.timeout);
@@ -638,7 +657,8 @@
     async function loadDriverStats() {
       document.getElementById('totalJobs').textContent = currentDriver.total_jobs || 0;
       document.getElementById('rating').textContent = (currentDriver.average_rating || 0).toFixed(1);
-      document.getElementById('todayEarnings').textContent = (currentDriver.total_jobs * 150 || 0);
+      // Show actual earnings instead of hardcoded ₹150 per job
+      document.getElementById('todayEarnings').textContent = currentDriver.today_earnings || 0;
     }
     
     async function loadAvailableJobs() {
@@ -845,24 +865,30 @@
     async function acceptJob() {
       clearInterval(countdownInterval);
       
-      // Immediate UI update (optimistic) - feels instant!
+      // Hide notification and show loading
       document.getElementById('jobNotification').classList.add('hidden');
-      activeJob = currentNotification;
-      jobStatus = 'assigned';
-      showActiveJob();
       
-      // Then update backend in background
       try {
-        fetch(`${API_URL}/api/jobs/${currentNotification.id}/accept`, {
+        // Wait for backend confirmation
+        const response = await fetch(`${API_URL}/api/jobs/${currentNotification.id}/accept`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ driverId: currentDriver.id })
-        }).catch(error => {
-          console.error('Failed to sync job acceptance:', error);
-          // If it fails, could revert UI here
         });
+        
+        if (response.ok) {
+          // Backend confirmed - now update UI
+          activeJob = currentNotification;
+          jobStatus = 'assigned';
+          showActiveJob();
+          console.log('✅ Job accepted and confirmed');
+        } else {
+          throw new Error('Backend rejected acceptance');
+        }
       } catch (error) {
-        console.error('Accept job error:', error);
+        console.error('❌ Failed to accept job:', error);
+        alert('Failed to accept job. It may have been assigned to another driver.');
+        currentNotification = null;
       }
     }
 
@@ -999,32 +1025,65 @@
 
     async function handleJobAction() {
       if (jobStatus === 'assigned') {
-        // Immediate UI update
+        // Mark as picked up
         jobStatus = 'in_progress';
         updateActionButton();
         
-        // Sync with backend in background
-        fetch(`${API_URL}/api/jobs/${activeJob.id}/pickup`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ driverId: currentDriver.id })
-        }).catch(error => console.error('Failed to sync pickup:', error));
+        try {
+          await fetch(`${API_URL}/api/jobs/${activeJob.id}/pickup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ driverId: currentDriver.id })
+          });
+          console.log('✅ Pickup confirmed by backend');
+        } catch (error) {
+          console.error('❌ Failed to mark as picked up:', error);
+          // Revert status
+          jobStatus = 'assigned';
+          updateActionButton();
+          alert('Failed to mark as picked up. Please try again.');
+        }
         
       } else if (jobStatus === 'in_progress') {
-        // Immediate UI update
-        alert(`Job completed! You earned ₹${activeJob.estimated_earnings}`);
-        resetActiveJob();
+        // Show loading state
+        const actionBtn = document.getElementById('actionButton');
+        actionBtn.disabled = true;
+        actionBtn.textContent = 'Completing...';
         
-        // Update stats optimistically
-        currentDriver.total_jobs = (currentDriver.total_jobs || 0) + 1;
-        loadDriverStats();
-        
-        // Sync with backend in background
-        fetch(`${API_URL}/api/jobs/${activeJob.id}/complete`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ driverId: currentDriver.id })
-        }).catch(error => console.error('Failed to sync completion:', error));
+        try {
+          // Wait for backend to confirm completion
+          const response = await fetch(`${API_URL}/api/jobs/${activeJob.id}/complete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ driverId: currentDriver.id })
+          });
+          
+          if (response.ok) {
+            // Update earnings
+            const earnings = activeJob.estimated_earnings;
+            currentDriver.total_jobs = (currentDriver.total_jobs || 0) + 1;
+            currentDriver.today_earnings = (currentDriver.today_earnings || 0) + earnings;
+            
+            // Save to localStorage
+            localStorage.setItem('currentUser', JSON.stringify(currentDriver));
+            
+            // Show success
+            alert(`✅ Job completed! You earned ₹${earnings}`);
+            
+            // Reset UI
+            resetActiveJob();
+            loadDriverStats();
+            
+            console.log('✅ Job completed successfully');
+          } else {
+            throw new Error('Backend rejected completion');
+          }
+        } catch (error) {
+          console.error('❌ Failed to complete job:', error);
+          actionBtn.disabled = false;
+          actionBtn.textContent = 'Mark as Delivered';
+          alert('Failed to complete job. Please try again.');
+        }
       }
     }
 
