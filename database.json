@@ -1,0 +1,477 @@
+{
+  "users": [
+    {
+      "id": "9cc91801-f691-4c8f-b0c3-54a77e5d8132",
+      "role": "manager",
+      "name": "Demo Manager",
+      "phone": "9876543210",
+      "password": "demo123",
+      "created_at": "2026-05-01T19:28:37.018Z"
+    },
+    {
+      "id": "8cd947fb-3935-43c3-bf8b-6954f9933bd2",
+      "role": "driver",
+      "name": "Rajesh Kumar",
+      "phone": "9876543201",
+      "password": "driver123",
+      "created_at": "2026-05-01T19:28:37.019Z"
+    },
+    {
+      "id": "f86592a5-0424-48b9-a422-2762296bb578",
+      "role": "driver",
+      "name": "Amit Sharma",
+      "phone": "9876543202",
+      "password": "driver123",
+      "created_at": "2026-05-01T19:28:37.019Z"
+    },
+    {
+      "id": "a6edcce6-d08d-4e5f-8ad0-42ab2a4c378b",
+      "role": "driver",
+      "name": "Priya Patel",
+      "phone": "9876543203",
+      "password": "driver123",
+      "created_at": "2026-05-01T19:28:37.019Z"
+    },
+    {
+      "id": "5c6c0601-2cbd-4e94-9b0b-c1bdb340628f",
+      "role": "driver",
+      "name": "Suresh Yadav",
+      "phone": "9876543204",
+      "password": "driver123",
+      "created_at": "2026-05-01T19:28:37.019Z"
+    },
+    {
+      "id": "75e17dd4-816f-4223-9228-c8e43476f401",
+      "role": "driver",
+      "name": "Neha Singh",
+      "phone": "9876543205",
+      "password": "driver123",
+      "created_at": "2026-05-01T19:28:37.019Z"
+    }
+  ],
+  "drivers": [
+    {
+      "id": "f3d784b8-ea82-48f3-9147-121701746e56",
+      "user_id": "8cd947fb-3935-43c3-bf8b-6954f9933bd2",
+      "availability_status": "online",
+      "current_lat": 18.51664165494504,
+      "current_lng": 73.85499802216516,
+      "acceptance_rate": 1,
+      "total_jobs": 0,
+      "average_rating": 0
+    },
+    {
+      "id": "89bcab48-3d92-4028-9c18-d0de9df0e0cf",
+      "user_id": "f86592a5-0424-48b9-a422-2762296bb578",
+      "availability_status": "online",
+      "current_lat": 18.53326577015629,
+      "current_lng": 73.84185783481249,
+      "acceptance_rate": 0,
+      "total_jobs": 0,
+      "average_rating": 0
+    },
+    {
+      "id": "609d9458-4102-4ebe-b659-3b64bf3ed998",
+      "user_id": "a6edcce6-d08d-4e5f-8ad0-42ab2a4c378b",
+      "availability_status": "online",
+      "current_lat": 18.506925438675573,
+      "current_lng": 73.80703886874126,
+      "acceptance_rate": 0,
+      "total_jobs": 0,
+      "average_rating": 0
+    },
+    {
+      "id": "42f7a3bd-ebe5-4f59-80df-dc5cb067f52e",
+      "user_id": "5c6c0601-2cbd-4e94-9b0b-c1bdb340628f",
+      "availability_status": "online",
+      "current_lat": 18.535748476508928,
+      "current_lng": 73.89237044568637,
+      "acceptance_rate": 1,
+      "total_jobs": 0,
+      "average_rating": 0
+    },
+    {
+      "id": "b4055513-4730-4e03-8f9e-b064269585e1",
+      "user_id": "75e17dd4-816f-4223-9228-c8e43476f401",
+      "availability_status": "online",
+      "current_lat": 18.4929,
+      "current_lng": 73.8278,
+      "acceptance_rate": 0,
+      "total_jobs": 0,
+      "average_rating": 0
+    }
+  ],
+  "jobs": [
+    {
+      "id": "87ed745b-5bae-4953-892a-13f1e5ffea07",
+      "created_by": "9cc91801-f691-4c8f-b0c3-54a77e5d8132",
+      "assigned_driver": "f3d784b8-ea82-48f3-9147-121701746e56",
+      "job_type": "pickup",
+      "priority": "normal",
+      "status": "cancelled",
+      "pickup_address": "1,North Main Road, Koregaon Park",
+      "pickup_lat": 18.501584648408212,
+      "pickup_lng": 73.81473386296787,
+      "dropoff_address": "Viman Nagar ",
+      "dropoff_lat": 18.472854182485847,
+      "dropoff_lng": 73.83475217048573,
+      "car_details": "Celerio, MH-14-EY-4464",
+      "special_instructions": "",
+      "estimated_distance": 3.8291752046311003,
+      "created_at": "2026-05-01T19:35:11.397Z",
+      "assigned_at": "2026-05-01T19:36:18.978Z",
+      "started_at": null,
+      "completed_at": null,
+      "cancelled_at": "2026-05-01T20:09:30.996Z"
+    },
+    {
+      "id": "c02ce510-bc9e-4ac6-88e2-f8d7d8ca2f9b",
+      "created_by": "9cc91801-f691-4c8f-b0c3-54a77e5d8132",
+      "assigned_driver": null,
+      "job_type": "pickup",
+      "priority": "urgent",
+      "status": "cancelled",
+      "pickup_address": "1,North Main Road, Koregaon Park",
+      "pickup_lat": 18.53592999486978,
+      "pickup_lng": 73.8588266647419,
+      "dropoff_address": "Viman Nagar ",
+      "dropoff_lat": 18.484804531903542,
+      "dropoff_lng": 73.80774667419934,
+      "car_details": "Celerio, MH-14-EY-4464",
+      "special_instructions": "",
+      "estimated_distance": 7.831152744891851,
+      "created_at": "2026-05-01T20:21:11.942Z",
+      "assigned_at": null,
+      "started_at": null,
+      "completed_at": null,
+      "cancelled_at": "2026-05-02T05:24:23.551Z"
+    },
+    {
+      "id": "5556f3d9-3af0-4d53-a196-47ef40365cf9",
+      "created_by": "9cc91801-f691-4c8f-b0c3-54a77e5d8132",
+      "assigned_driver": "f3d784b8-ea82-48f3-9147-121701746e56",
+      "job_type": "pickup",
+      "priority": "normal",
+      "status": "in_progress",
+      "pickup_address": "1,North Main Road, Koregaon Park",
+      "pickup_lat": 18.557310665247357,
+      "pickup_lng": 73.863609885405,
+      "dropoff_address": "Viman Nagar ",
+      "dropoff_lat": 18.510716703357424,
+      "dropoff_lng": 73.86846368929305,
+      "car_details": "Celerio, MH-14-EY-4464",
+      "special_instructions": "",
+      "estimated_distance": 5.206222293451221,
+      "created_at": "2026-05-02T05:24:41.227Z",
+      "assigned_at": "2026-05-02T05:26:03.287Z",
+      "started_at": "2026-05-02T05:26:55.514Z",
+      "completed_at": null
+    },
+    {
+      "id": "b5b9b702-9882-48e7-a842-f7474bd5a833",
+      "created_by": "9cc91801-f691-4c8f-b0c3-54a77e5d8132",
+      "assigned_driver": "f3d784b8-ea82-48f3-9147-121701746e56",
+      "job_type": "delivery",
+      "priority": "normal",
+      "status": "assigned",
+      "pickup_address": "Viman Nagar",
+      "pickup_lat": 18.561815950149388,
+      "pickup_lng": 73.88335394058883,
+      "dropoff_address": "Koregaon Park",
+      "dropoff_lat": 18.519091849291105,
+      "dropoff_lng": 73.90551171819196,
+      "car_details": "Celerio, MH-14-EY-4464",
+      "special_instructions": "",
+      "estimated_distance": 5.293947588359023,
+      "created_at": "2026-05-02T05:32:15.142Z",
+      "assigned_at": "2026-05-02T05:33:27.624Z",
+      "started_at": null,
+      "completed_at": null
+    },
+    {
+      "id": "5d120a1e-95e7-463e-a4c9-dc02850aaeb2",
+      "created_by": "f3d784b8-ea82-48f3-9147-121701746e56",
+      "assigned_driver": "42f7a3bd-ebe5-4f59-80df-dc5cb067f52e",
+      "job_type": "pickup",
+      "priority": "normal",
+      "status": "cancelled",
+      "pickup_address": "1,North Main Road, Koregaon Park",
+      "pickup_lat": 18.557903011611177,
+      "pickup_lng": 73.83464860912176,
+      "dropoff_address": "Viman Nagar ",
+      "dropoff_lat": 18.517127035186427,
+      "dropoff_lng": 73.82748553408551,
+      "car_details": "Celerio, MH-14-EY-4464",
+      "special_instructions": "",
+      "estimated_distance": 4.596540162064556,
+      "created_at": "2026-05-02T08:23:34.018Z",
+      "assigned_at": "2026-05-02T08:35:36.370Z",
+      "started_at": null,
+      "completed_at": null,
+      "cancelled_at": "2026-05-02T08:36:03.099Z"
+    },
+    {
+      "id": "cdb859ed-c27f-4d64-9528-3fe40550b3ff",
+      "created_by": "f3d784b8-ea82-48f3-9147-121701746e56",
+      "assigned_driver": "42f7a3bd-ebe5-4f59-80df-dc5cb067f52e",
+      "job_type": "delivery",
+      "priority": "normal",
+      "status": "in_progress",
+      "pickup_address": "Shivajinagar",
+      "pickup_lat": 18.510018832350823,
+      "pickup_lng": 73.90150486217706,
+      "dropoff_address": "Camp",
+      "dropoff_lat": 18.53546552526718,
+      "dropoff_lng": 73.8467647481287,
+      "car_details": "S-Cross MH12QF8856",
+      "special_instructions": "",
+      "estimated_distance": 6.427803221111236,
+      "created_at": "2026-05-02T08:34:35.456Z",
+      "assigned_at": "2026-05-02T08:35:17.758Z",
+      "started_at": "2026-05-02T08:35:23.587Z",
+      "completed_at": null
+    }
+  ],
+  "job_queue": [
+    {
+      "id": "35ee61bd-dea3-4f28-8513-6d79d64d7ea2",
+      "job_id": "87ed745b-5bae-4953-892a-13f1e5ffea07",
+      "driver_id": "609d9458-4102-4ebe-b659-3b64bf3ed998",
+      "position": 0,
+      "notified_at": "2026-05-01T19:35:12.413Z",
+      "status": "timeout"
+    },
+    {
+      "id": "da2d320d-a0d7-4146-b7e9-5268e1bc0bd8",
+      "job_id": "87ed745b-5bae-4953-892a-13f1e5ffea07",
+      "driver_id": "b4055513-4730-4e03-8f9e-b064269585e1",
+      "position": 1,
+      "notified_at": "2026-05-01T19:35:42.421Z",
+      "status": "timeout"
+    },
+    {
+      "id": "4bd69d3c-3903-4cae-9c7d-3571701c7fdc",
+      "job_id": "87ed745b-5bae-4953-892a-13f1e5ffea07",
+      "driver_id": "f3d784b8-ea82-48f3-9147-121701746e56",
+      "position": 2,
+      "notified_at": "2026-05-01T19:36:12.432Z",
+      "status": "accepted"
+    },
+    {
+      "id": "fcff4a4a-de51-410c-8b1e-8463b545936c",
+      "job_id": "87ed745b-5bae-4953-892a-13f1e5ffea07",
+      "driver_id": "89bcab48-3d92-4028-9c18-d0de9df0e0cf",
+      "position": 3,
+      "notified_at": null,
+      "status": "pending"
+    },
+    {
+      "id": "7e99dc11-1c1d-41a8-8f04-3f4b47faff31",
+      "job_id": "87ed745b-5bae-4953-892a-13f1e5ffea07",
+      "driver_id": "42f7a3bd-ebe5-4f59-80df-dc5cb067f52e",
+      "position": 4,
+      "notified_at": null,
+      "status": "pending"
+    },
+    {
+      "id": "f46a8687-5e43-4fae-aa93-6c3d2f156165",
+      "job_id": "c02ce510-bc9e-4ac6-88e2-f8d7d8ca2f9b",
+      "driver_id": "89bcab48-3d92-4028-9c18-d0de9df0e0cf",
+      "position": 0,
+      "notified_at": "2026-05-01T20:22:12.984Z",
+      "status": "timeout"
+    },
+    {
+      "id": "70c95357-4464-4e8e-a785-b2f855573786",
+      "job_id": "c02ce510-bc9e-4ac6-88e2-f8d7d8ca2f9b",
+      "driver_id": "f3d784b8-ea82-48f3-9147-121701746e56",
+      "position": 1,
+      "notified_at": "2026-05-01T20:21:42.968Z",
+      "status": "declined"
+    },
+    {
+      "id": "95da53f6-3f7c-457a-848a-d92651baf6d5",
+      "job_id": "c02ce510-bc9e-4ac6-88e2-f8d7d8ca2f9b",
+      "driver_id": "42f7a3bd-ebe5-4f59-80df-dc5cb067f52e",
+      "position": 2,
+      "notified_at": "2026-05-01T20:22:12.981Z",
+      "status": "pending"
+    },
+    {
+      "id": "897822e6-5f31-4e7a-ab9e-04d8339c6295",
+      "job_id": "c02ce510-bc9e-4ac6-88e2-f8d7d8ca2f9b",
+      "driver_id": "609d9458-4102-4ebe-b659-3b64bf3ed998",
+      "position": 3,
+      "notified_at": null,
+      "status": "pending"
+    },
+    {
+      "id": "5e322672-a5e7-4677-8748-00e396f5a319",
+      "job_id": "c02ce510-bc9e-4ac6-88e2-f8d7d8ca2f9b",
+      "driver_id": "b4055513-4730-4e03-8f9e-b064269585e1",
+      "position": 4,
+      "notified_at": null,
+      "status": "pending"
+    },
+    {
+      "id": "857189c3-6a59-4802-a8b2-09604d16d6af",
+      "job_id": "5556f3d9-3af0-4d53-a196-47ef40365cf9",
+      "driver_id": "89bcab48-3d92-4028-9c18-d0de9df0e0cf",
+      "position": 0,
+      "notified_at": "2026-05-02T05:24:42.232Z",
+      "status": "timeout"
+    },
+    {
+      "id": "d531a60b-8956-4e6b-9ee0-96a3d95ea0f9",
+      "job_id": "5556f3d9-3af0-4d53-a196-47ef40365cf9",
+      "driver_id": "42f7a3bd-ebe5-4f59-80df-dc5cb067f52e",
+      "position": 1,
+      "notified_at": "2026-05-02T05:25:12.252Z",
+      "status": "timeout"
+    },
+    {
+      "id": "6ce03082-287a-475c-9942-6c4b3d64c5be",
+      "job_id": "5556f3d9-3af0-4d53-a196-47ef40365cf9",
+      "driver_id": "f3d784b8-ea82-48f3-9147-121701746e56",
+      "position": 2,
+      "notified_at": "2026-05-02T05:25:42.264Z",
+      "status": "accepted"
+    },
+    {
+      "id": "d83a964b-8eef-433e-8d97-fe4d6a9dbe76",
+      "job_id": "5556f3d9-3af0-4d53-a196-47ef40365cf9",
+      "driver_id": "609d9458-4102-4ebe-b659-3b64bf3ed998",
+      "position": 3,
+      "notified_at": null,
+      "status": "pending"
+    },
+    {
+      "id": "6d5fbd2f-43fe-4fb3-9741-07951c9fcf4b",
+      "job_id": "5556f3d9-3af0-4d53-a196-47ef40365cf9",
+      "driver_id": "b4055513-4730-4e03-8f9e-b064269585e1",
+      "position": 4,
+      "notified_at": null,
+      "status": "pending"
+    },
+    {
+      "id": "a0195c8b-16a6-4da1-b52b-0f5841303c52",
+      "job_id": "b5b9b702-9882-48e7-a842-f7474bd5a833",
+      "driver_id": "42f7a3bd-ebe5-4f59-80df-dc5cb067f52e",
+      "position": 0,
+      "notified_at": "2026-05-02T05:32:16.151Z",
+      "status": "timeout"
+    },
+    {
+      "id": "34bbf449-7084-4d2b-b2d7-f8765c213d95",
+      "job_id": "b5b9b702-9882-48e7-a842-f7474bd5a833",
+      "driver_id": "89bcab48-3d92-4028-9c18-d0de9df0e0cf",
+      "position": 1,
+      "notified_at": "2026-05-02T05:32:46.164Z",
+      "status": "timeout"
+    },
+    {
+      "id": "1606c167-c0fa-4815-9491-e1505ac51386",
+      "job_id": "b5b9b702-9882-48e7-a842-f7474bd5a833",
+      "driver_id": "f3d784b8-ea82-48f3-9147-121701746e56",
+      "position": 2,
+      "notified_at": "2026-05-02T05:33:16.185Z",
+      "status": "accepted"
+    },
+    {
+      "id": "2610191d-2a31-4eca-908c-ef68e8b93805",
+      "job_id": "b5b9b702-9882-48e7-a842-f7474bd5a833",
+      "driver_id": "609d9458-4102-4ebe-b659-3b64bf3ed998",
+      "position": 3,
+      "notified_at": null,
+      "status": "pending"
+    },
+    {
+      "id": "7f1b8cf5-8c3e-4c76-abb7-a5f7c687fe21",
+      "job_id": "b5b9b702-9882-48e7-a842-f7474bd5a833",
+      "driver_id": "b4055513-4730-4e03-8f9e-b064269585e1",
+      "position": 4,
+      "notified_at": null,
+      "status": "pending"
+    },
+    {
+      "id": "7ecde774-443d-44eb-8f7d-bccaeb40415c",
+      "job_id": "5d120a1e-95e7-463e-a4c9-dc02850aaeb2",
+      "driver_id": "89bcab48-3d92-4028-9c18-d0de9df0e0cf",
+      "position": 0,
+      "notified_at": "2026-05-02T08:24:35.049Z",
+      "status": "timeout"
+    },
+    {
+      "id": "2f24968b-e252-467a-a948-7aaee33bbaff",
+      "job_id": "5d120a1e-95e7-463e-a4c9-dc02850aaeb2",
+      "driver_id": "f3d784b8-ea82-48f3-9147-121701746e56",
+      "position": 1,
+      "notified_at": "2026-05-02T08:24:05.033Z",
+      "status": "declined"
+    },
+    {
+      "id": "a4474548-4f94-457c-bcf8-d5156458af8e",
+      "job_id": "5d120a1e-95e7-463e-a4c9-dc02850aaeb2",
+      "driver_id": "609d9458-4102-4ebe-b659-3b64bf3ed998",
+      "position": 2,
+      "notified_at": "2026-05-02T08:24:35.044Z",
+      "status": "pending"
+    },
+    {
+      "id": "7f63fc07-251e-452e-b5ae-7992cff2de7c",
+      "job_id": "5d120a1e-95e7-463e-a4c9-dc02850aaeb2",
+      "driver_id": "42f7a3bd-ebe5-4f59-80df-dc5cb067f52e",
+      "position": 3,
+      "notified_at": null,
+      "status": "accepted"
+    },
+    {
+      "id": "52576f70-03a0-45eb-8e64-bb35fc87b1a4",
+      "job_id": "5d120a1e-95e7-463e-a4c9-dc02850aaeb2",
+      "driver_id": "b4055513-4730-4e03-8f9e-b064269585e1",
+      "position": 4,
+      "notified_at": null,
+      "status": "pending"
+    },
+    {
+      "id": "af4d8355-1c1b-4b8d-9f47-b96344f42d6c",
+      "job_id": "cdb859ed-c27f-4d64-9528-3fe40550b3ff",
+      "driver_id": "42f7a3bd-ebe5-4f59-80df-dc5cb067f52e",
+      "position": 0,
+      "notified_at": "2026-05-02T08:35:12.930Z",
+      "status": "accepted"
+    },
+    {
+      "id": "739ad0cb-97ae-4e32-8646-011db41bea98",
+      "job_id": "cdb859ed-c27f-4d64-9528-3fe40550b3ff",
+      "driver_id": "f3d784b8-ea82-48f3-9147-121701746e56",
+      "position": 1,
+      "notified_at": "2026-05-02T08:35:06.481Z",
+      "status": "pending"
+    },
+    {
+      "id": "490c0127-f6bc-46b6-a75f-8dd1311cfc79",
+      "job_id": "cdb859ed-c27f-4d64-9528-3fe40550b3ff",
+      "driver_id": "89bcab48-3d92-4028-9c18-d0de9df0e0cf",
+      "position": 2,
+      "notified_at": null,
+      "status": "pending"
+    },
+    {
+      "id": "52df7647-e742-4c3f-a92b-132f46ecb2e9",
+      "job_id": "cdb859ed-c27f-4d64-9528-3fe40550b3ff",
+      "driver_id": "b4055513-4730-4e03-8f9e-b064269585e1",
+      "position": 3,
+      "notified_at": null,
+      "status": "pending"
+    },
+    {
+      "id": "de1f6860-1eb5-40a2-bde4-5140298f50a6",
+      "job_id": "cdb859ed-c27f-4d64-9528-3fe40550b3ff",
+      "driver_id": "609d9458-4102-4ebe-b659-3b64bf3ed998",
+      "position": 4,
+      "notified_at": null,
+      "status": "pending"
+    }
+  ]
+}
