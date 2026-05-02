@@ -37,32 +37,27 @@
       cursor: pointer;
       font-size: 14px;
       font-weight: 500;
-      transition: all 0.2s;
-    }
-    
-    .btn-logout:hover {
-      background: rgba(255, 255, 255, 0.3);
-      border-color: rgba(255, 255, 255, 0.5);
     }
     
     .status-toggle {
       background: white;
       margin: 16px;
       padding: 16px;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      border-radius: 8px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .status-toggle label { font-weight: 600; font-size: 16px; }
     
     .switch {
       position: relative;
+      display: inline-block;
       width: 60px;
       height: 34px;
     }
+    
     .switch input { opacity: 0; width: 0; height: 0; }
+    
     .slider {
       position: absolute;
       cursor: pointer;
@@ -71,6 +66,7 @@
       transition: .4s;
       border-radius: 34px;
     }
+    
     .slider:before {
       position: absolute;
       content: "";
@@ -82,6 +78,7 @@
       transition: .4s;
       border-radius: 50%;
     }
+    
     input:checked + .slider { background-color: #28a745; }
     input:checked + .slider:before { transform: translateX(26px); }
     
@@ -89,27 +86,45 @@
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 12px;
-      padding: 0 16px;
-      margin-bottom: 16px;
+      margin: 16px;
     }
+    
     .stat-card {
       background: white;
       padding: 16px;
-      border-radius: 12px;
+      border-radius: 8px;
       text-align: center;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
-    .stat-card h3 { font-size: 12px; color: #666; margin-bottom: 4px; }
-    .stat-card .value { font-size: 24px; font-weight: bold; color: #667eea; }
+    
+    .stat-card h3 { font-size: 12px; color: #666; margin-bottom: 8px; }
+    .stat-card .value { font-size: 24px; font-weight: bold; color: #333; }
     
     .section {
-      margin: 16px;
       background: white;
-      border-radius: 12px;
-      padding: 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin: 16px;
+      padding: 20px;
+      border-radius: 8px;
     }
-    .section h2 { font-size: 18px; margin-bottom: 12px; color: #333; }
+    
+    .section h2 { font-size: 18px; margin-bottom: 16px; }
+    
+    #map { height: 400px; border-radius: 8px; margin: 16px 0; border: 2px solid #e0e0e0; }
+    
+    .btn {
+      padding: 14px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      font-weight: 600;
+      width: 100%;
+      margin-top: 12px;
+    }
+    
+    .btn-primary { background: #007bff; color: white; }
+    .btn-success { background: #28a745; color: white; }
+    .btn-warning { background: #ffc107; color: #333; }
+    .btn-danger { background: #dc3545; color: white; }
     
     .job-notification {
       position: fixed;
@@ -117,13 +132,14 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0,0,0,0.8);
+      background: rgba(0,0,0,0.9);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 1000;
       animation: fadeIn 0.3s;
     }
+    
     @keyframes fadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
@@ -132,11 +148,12 @@
     .notification-card {
       background: white;
       border-radius: 16px;
-      padding: 24px;
-      max-width: 90%;
-      width: 400px;
+      padding: 32px;
+      max-width: 400px;
+      width: 90%;
       animation: slideUp 0.4s;
     }
+    
     @keyframes slideUp {
       from { transform: translateY(50px); opacity: 0; }
       to { transform: translateY(0); opacity: 1; }
@@ -144,10 +161,16 @@
     
     .notification-header {
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 24px;
     }
-    .notification-header h2 { font-size: 24px; color: #333; margin-bottom: 8px; }
-    .timer {
+    
+    .notification-header h2 {
+      font-size: 24px;
+      color: #333;
+      margin-bottom: 8px;
+    }
+    
+    .countdown {
       font-size: 48px;
       font-weight: bold;
       color: #dc3545;
@@ -158,62 +181,15 @@
       background: #f8f9fa;
       padding: 16px;
       border-radius: 8px;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
     }
-    .job-info-row {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 8px;
+    
+    .job-info p {
+      margin: 8px 0;
       font-size: 14px;
     }
-    .job-info-row strong { color: #333; }
-    .job-info-row span { color: #666; }
     
-    .notification-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-    }
-    
-    .btn {
-      padding: 14px;
-      border: none;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .btn-accept {
-      background: #28a745;
-      color: white;
-    }
-    .btn-decline {
-      background: #dc3545;
-      color: white;
-    }
-    .btn-primary {
-      background: #667eea;
-      color: white;
-      width: 100%;
-      margin-bottom: 8px;
-    }
-    .btn-warning {
-      background: #ffc107;
-      color: #333;
-      width: 100%;
-    }
-    
-    .active-job {
-      border: 2px solid #667eea;
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .active-job h3 { font-size: 16px; color: #667eea; margin-bottom: 12px; }
-    .job-detail { font-size: 14px; margin-bottom: 8px; color: #666; }
-    .job-detail strong { color: #333; }
-    
-    #map { height: 400px; border-radius: 8px; margin: 16px 0; border: 2px solid #e0e0e0; }
+    .hidden { display: none !important; }
     
     .login-container {
       min-height: 100vh;
@@ -221,112 +197,92 @@
       align-items: center;
       justify-content: center;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 20px;
     }
+    
     .login-card {
       background: white;
-      padding: 32px;
-      border-radius: 16px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-      width: 100%;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      width: 90%;
       max-width: 400px;
     }
-    .login-card h1 { font-size: 24px; margin-bottom: 8px; color: #333; }
-    .login-card p { font-size: 14px; color: #666; margin-bottom: 24px; }
-    .form-group {
-      margin-bottom: 16px;
+    
+    .login-card h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+      color: #333;
     }
+    
+    .login-card p {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 24px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
     .form-group label {
       display: block;
       font-size: 14px;
       color: #333;
-      margin-bottom: 4px;
+      margin-bottom: 8px;
       font-weight: 500;
     }
+    
     .form-group input {
       width: 100%;
       padding: 12px;
-      border: 1px solid #ddd;
+      border: 2px solid #e0e0e0;
       border-radius: 8px;
-      font-size: 14px;
+      font-size: 16px;
     }
     
-    .available-job-card {
-      background: #f8f9fa;
-      border: 1px solid #e0e0e0;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 12px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-    
-    .available-job-card:hover {
-      background: #fff;
+    .form-group input:focus {
+      outline: none;
       border-color: #667eea;
-      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
     }
     
-    .available-job-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-    
-    .available-job-id {
-      font-weight: 600;
-      font-size: 14px;
-      color: #333;
-    }
-    
-    .available-job-distance {
-      background: #667eea;
-      color: white;
-      padding: 4px 8px;
-      border-radius: 12px;
-      font-size: 11px;
-      font-weight: 500;
-    }
-    
-    .available-job-details {
-      font-size: 12px;
+    .no-job-container {
+      text-align: center;
+      padding: 60px 20px;
       color: #666;
-      line-height: 1.6;
-      margin-bottom: 8px;
     }
     
-    .available-job-actions {
-      display: flex;
-      gap: 8px;
+    .no-job-container .car-icon {
+      font-size: 64px;
+      margin-bottom: 16px;
     }
     
-    .btn-xs {
-      padding: 6px 12px;
-      font-size: 12px;
-      border-radius: 6px;
+    .active-job {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 16px;
     }
     
-    .hidden { display: none !important; }
+    .active-job h3 {
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 12px;
+    }
+    
+    .job-detail {
+      margin: 8px 0;
+      font-size: 14px;
+      color: #666;
+    }
     
     .earnings-badge {
-      background: linear-gradient(135deg, #ffd700 0%, #ffa500 100%);
-      color: #333;
+      background: #28a745;
+      color: white;
       padding: 8px 16px;
       border-radius: 20px;
-      font-weight: bold;
       display: inline-block;
-      margin-top: 8px;
-    }
-    
-    .warning-text {
-      background: #fff3cd;
-      border: 1px solid #ffc107;
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 13px;
-      color: #856404;
-      margin-bottom: 12px;
+      font-weight: 600;
+      margin-top: 12px;
     }
   </style>
 </head>
@@ -379,15 +335,16 @@
       </div>
       <div class="stat-card">
         <h3>Rating</h3>
-        <div class="value">⭐ <span id="rating">0</span></div>
+        <div class="value">⭐ <span id="rating">0.0</span></div>
       </div>
     </div>
 
-    <!-- Available Jobs Section -->
-    <div id="availableJobsSection" class="section" style="margin: 16px;">
-      <h2>📋 Available Jobs Nearby</h2>
-      <div id="availableJobsList">
-        <p style="color: #999; text-align: center; padding: 20px;">Loading...</p>
+    <!-- No Job Section -->
+    <div id="noJobSection" class="section">
+      <div class="no-job-container">
+        <div class="car-icon">🚗</div>
+        <h2>Waiting for jobs...</h2>
+        <p>Make sure you're online to receive notifications</p>
       </div>
     </div>
 
@@ -397,19 +354,8 @@
         <h2>📍 Active Job</h2>
         <div id="activeJobDetails"></div>
         <div id="map"></div>
-        <div style="display: flex; gap: 12px; margin-top: 16px;">
-          <button id="actionButton" class="btn btn-primary" onclick="handleJobAction()" style="flex: 1;">Mark as Picked Up</button>
-          <button id="cancelButton" class="btn btn-warning" onclick="showCancelConfirm()" style="flex: 1;">Cancel This Job</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- No Active Job -->
-    <div id="noJobSection">
-      <div class="section" style="text-align: center; padding: 40px 20px;">
-        <div style="font-size: 48px; margin-bottom: 16px;">🚗</div>
-        <h2 style="color: #999;">Waiting for jobs...</h2>
-        <p style="color: #666; margin-top: 8px;">Make sure you're online to receive notifications</p>
+        <button id="actionButton" class="btn btn-primary" onclick="handleJobAction()">Mark as Picked Up</button>
+        <button id="cancelButton" class="btn btn-warning" onclick="showCancelConfirm()">Cancel This Job</button>
       </div>
     </div>
   </div>
@@ -418,36 +364,12 @@
   <div id="jobNotification" class="job-notification hidden">
     <div class="notification-card">
       <div class="notification-header">
-        <h2>🔔 New Job!</h2>
-        <div class="timer" id="countdown">30</div>
+        <h2>🚗 New Job Request!</h2>
+        <div class="countdown" id="countdown">30</div>
       </div>
-      
-      <div class="job-info" id="notificationJobInfo">
-        <!-- Job details will be inserted here -->
-      </div>
-      
-      <div class="notification-actions">
-        <button class="btn btn-decline" onclick="declineJob()">Decline</button>
-        <button class="btn btn-accept" onclick="acceptJob()">Accept</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Cancel Confirmation Modal -->
-  <div id="cancelModal" class="job-notification hidden">
-    <div class="notification-card">
-      <h2 style="margin-bottom: 16px;">⚠️ Cancel Job?</h2>
-      <div class="warning-text">
-        <strong>Warning:</strong> Cancelling will reduce your acceptance rate by 10% and may affect future job offers.
-      </div>
-      <div class="form-group">
-        <label>Reason (Optional)</label>
-        <input type="text" id="cancelReason" placeholder="e.g., Vehicle breakdown, emergency" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
-      </div>
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;">
-        <button class="btn btn-primary" onclick="closeCancelModal()">Go Back</button>
-        <button class="btn btn-decline" onclick="confirmCancel()">Confirm Cancel</button>
-      </div>
+      <div class="job-info" id="jobInfo"></div>
+      <button class="btn btn-success" onclick="acceptJob()">Accept Job</button>
+      <button class="btn btn-danger" onclick="declineJob()">Decline</button>
     </div>
   </div>
 
@@ -460,15 +382,16 @@
     let currentNotification = null;
     let countdownInterval = null;
     let activeJob = null;
-    let jobStatus = 'none'; // none, assigned, in_progress
+    let jobStatus = 'none';
 
-    // CRITICAL: Auto-detect protocol for both localhost AND production
-    const protocol = window.location.protocol; // http: or https:
-    const host = window.location.host; // includes port
+    // CRITICAL: Auto-detect protocol for production
+    const protocol = window.location.protocol;
+    const host = window.location.host;
     const API_URL = `${protocol}//${host}`;
     const WS_URL = protocol === 'https:' ? `wss://${window.location.hostname}` : `ws://${host}`;
 
-    console.log('API URL:', API_URL); // For debugging
+    console.log('API URL:', API_URL);
+    console.log('WebSocket URL:', WS_URL);
 
     // Auto-login if session exists
     window.addEventListener('DOMContentLoaded', () => {
@@ -482,11 +405,9 @@
           document.getElementById('driverApp').classList.remove('hidden');
           document.getElementById('driverName').textContent = userData.name;
           
-          // Restore online status
           const savedStatus = localStorage.getItem('driverStatus');
           if (savedStatus === 'online') {
             document.getElementById('statusToggle').checked = true;
-            // Sync with backend
             toggleStatus();
           }
           
@@ -517,14 +438,14 @@
         if (response.ok && data.user.role === 'driver') {
           currentUser = data.user;
           currentDriver = data.user;
-          localStorage.setItem('currentUser', JSON.stringify(data.user)); // Save session
+          localStorage.setItem('currentUser', JSON.stringify(data.user));
           document.getElementById('loginScreen').classList.add('hidden');
           document.getElementById('driverApp').classList.remove('hidden');
           document.getElementById('driverName').textContent = data.user.name;
           
           initDriverApp();
         } else {
-          alert('Invalid driver credentials');
+          alert(data.error || 'Invalid credentials');
         }
       } catch (error) {
         alert('Login failed: ' + error.message);
@@ -536,7 +457,7 @@
       ws = new WebSocket(`${WS_URL}?userId=${currentDriver.id}`);
       
       ws.onopen = () => {
-        console.log('✅ WebSocket connected:', WS_URL);
+        console.log('✅ WebSocket connected');
       };
       
       ws.onerror = (error) => {
@@ -545,13 +466,6 @@
       
       ws.onclose = () => {
         console.log('⚠️ WebSocket disconnected');
-        // Try to reconnect after 5 seconds
-        setTimeout(() => {
-          if (currentDriver && document.getElementById('driverApp').classList.contains('hidden') === false) {
-            console.log('🔄 Attempting to reconnect WebSocket...');
-            ws = new WebSocket(`${WS_URL}?userId=${currentDriver.id}`);
-          }
-        }, 5000);
       };
       
       ws.onmessage = (event) => {
@@ -561,84 +475,17 @@
         if (data.type === 'JOB_NOTIFICATION') {
           showJobNotification(data.job, data.timeout);
         } else if (data.type === 'JOB_CANCELLED') {
-          alert('Job cancelled by manager: ' + data.message);
+          alert('Job cancelled by manager');
           resetActiveJob();
         }
       };
 
-      // Load driver stats
       loadDriverStats();
-      
-      // Check for active job (in case driver refreshed or logged back in)
       loadActiveJob();
-      
-      // Load available jobs
-      loadAvailableJobs();
+    }
 
-      // Simulate location updates
-      setInterval(() => {
-        if (currentDriver.availability_status === 'online') {
-          simulateLocationUpdate();
-        }
-      }, 15000);
-      
-      // Refresh available jobs every 10 seconds
-      setInterval(() => {
-        if (currentDriver.availability_status === 'online' && !activeJob) {
-          loadAvailableJobs();
-        }
-      }, 10000);
-    }
-    
-    async function loadActiveJob() {
-      try {
-        // Check if this driver has any active jobs
-        const response = await fetch(`${API_URL}/api/jobs?status=assigned`);
-        const assignedJobs = await response.json();
-        
-        // Find job assigned to this driver
-        let myJob = assignedJobs.find(j => j.driver_id === currentDriver.id);
-        
-        // Also check in_progress jobs
-        if (!myJob) {
-          const progressResponse = await fetch(`${API_URL}/api/jobs?status=in_progress`);
-          const progressJobs = await progressResponse.json();
-          myJob = progressJobs.find(j => j.driver_id === currentDriver.id);
-          
-          if (myJob) {
-            jobStatus = 'in_progress';
-          }
-        } else {
-          jobStatus = 'assigned';
-        }
-        
-        if (myJob) {
-          // Restore active job
-          activeJob = {
-            id: myJob.id,
-            pickup_address: myJob.pickup_address,
-            pickup_lat: myJob.pickup_lat,
-            pickup_lng: myJob.pickup_lng,
-            dropoff_address: myJob.dropoff_address,
-            dropoff_lat: myJob.dropoff_lat,
-            dropoff_lng: myJob.dropoff_lng,
-            estimated_distance: myJob.estimated_distance_km || myJob.estimated_distance,
-            estimated_earnings: Math.round((myJob.estimated_distance_km || myJob.estimated_distance) * 50)
-          };
-          
-          showActiveJob();
-          console.log('Restored active job:', activeJob.id);
-        }
-      } catch (error) {
-        console.error('Failed to load active job:', error);
-      }
-    }
-    
     function logout() {
-      // Close WebSocket
       if (ws) ws.close();
-      
-      // Clear session data
       currentUser = null;
       currentDriver = null;
       activeJob = null;
@@ -646,139 +493,15 @@
       localStorage.removeItem('currentUser');
       localStorage.removeItem('driverStatus');
       
-      // Reset UI
       document.getElementById('driverApp').classList.add('hidden');
       document.getElementById('loginScreen').classList.remove('hidden');
       document.getElementById('statusToggle').checked = false;
-      document.getElementById('loginPhone').value = '';
-      document.getElementById('loginPassword').value = '';
     }
 
-    async function loadDriverStats() {
+    function loadDriverStats() {
       document.getElementById('totalJobs').textContent = currentDriver.total_jobs || 0;
       document.getElementById('rating').textContent = (currentDriver.average_rating || 0).toFixed(1);
-      // Show actual earnings instead of hardcoded ₹150 per job
       document.getElementById('todayEarnings').textContent = currentDriver.today_earnings || 0;
-    }
-    
-    async function loadAvailableJobs() {
-      const listEl = document.getElementById('availableJobsList');
-      
-      try {
-        const response = await fetch(`${API_URL}/api/jobs?status=pending`);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const jobs = await response.json();
-        
-        if (!Array.isArray(jobs)) {
-          throw new Error('Invalid response format');
-        }
-        
-        if (jobs.length === 0) {
-          listEl.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">No jobs available right now</p>';
-          return;
-        }
-        
-        // Calculate distance to each job
-        const jobsWithDistance = jobs.map(job => {
-          const distance = calculateDistance(
-            currentDriver.current_lat || 18.5204,
-            currentDriver.current_lng || 73.8567,
-            job.pickup_lat,
-            job.pickup_lng
-          );
-          return { ...job, distance };
-        });
-        
-        // Sort by distance (closest first)
-        jobsWithDistance.sort((a, b) => a.distance - b.distance);
-        
-        // Show only jobs within 10km
-        const nearbyJobs = jobsWithDistance.filter(j => j.distance <= 10);
-        
-        if (nearbyJobs.length === 0) {
-          listEl.innerHTML = '<p style="color: #999; text-align: center; padding: 20px;">No jobs nearby (within 10km)</p>';
-          return;
-        }
-        
-        const html = nearbyJobs.map(job => `
-          <div class="available-job-card">
-            <div class="available-job-header">
-              <span class="available-job-id">Job #${job.id.slice(0, 8)}</span>
-              <span class="available-job-distance">${job.distance.toFixed(1)} km away</span>
-            </div>
-            <div class="available-job-details">
-              <strong>Pickup:</strong> ${job.pickup_address}<br>
-              <strong>Dropoff:</strong> ${job.dropoff_address}<br>
-              <strong>Car:</strong> ${job.car_details}<br>
-              <strong>Earnings:</strong> ₹${Math.round(job.estimated_distance * 50)}
-            </div>
-            <div class="available-job-actions">
-              <button class="btn btn-primary btn-xs" onclick="acceptAvailableJob('${job.id}')">
-                Accept This Job
-              </button>
-            </div>
-          </div>
-        `).join('');
-        
-        listEl.innerHTML = html;
-      } catch (error) {
-        console.error('Failed to load available jobs:', error);
-        // Show error message to user
-        listEl.innerHTML = `
-          <p style="color: #999; text-align: center; padding: 20px;">
-            Unable to load jobs<br>
-            <small style="color: #666;">Check your internet connection</small>
-          </p>
-        `;
-      }
-    }
-    
-    // Haversine formula to calculate distance between two points
-    function calculateDistance(lat1, lon1, lat2, lon2) {
-      const R = 6371; // Earth's radius in km
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = 
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    }
-    
-    async function acceptAvailableJob(jobId) {
-      try {
-        const response = await fetch(`${API_URL}/api/jobs/${jobId}/accept`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ driverId: currentDriver.id })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-          // Find the job details
-          const jobResponse = await fetch(`${API_URL}/api/jobs?status=pending`);
-          const jobs = await jobResponse.json();
-          const job = jobs.find(j => j.id === jobId);
-          
-          if (job) {
-            activeJob = job;
-            jobStatus = 'assigned';
-            showActiveJob();
-            loadAvailableJobs(); // Refresh the list
-          }
-        } else {
-          alert(data.error || 'Job already assigned to another driver');
-          loadAvailableJobs(); // Refresh to remove the job
-        }
-      } catch (error) {
-        alert('Failed to accept job: ' + error.message);
-      }
     }
 
     async function toggleStatus() {
@@ -796,59 +519,26 @@
         });
 
         currentDriver.availability_status = newStatus;
-        // Save status to localStorage
         localStorage.setItem('driverStatus', newStatus);
       } catch (error) {
         console.error('Failed to update status:', error);
       }
     }
 
-    function simulateLocationUpdate() {
-      // Simulate small movement
-      const lat = (currentDriver.current_lat || 18.5204) + (Math.random() - 0.5) * 0.001;
-      const lng = (currentDriver.current_lng || 73.8567) + (Math.random() - 0.5) * 0.001;
-
-      fetch(`${API_URL}/api/drivers/location`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          driverId: currentDriver.id,
-          lat,
-          lng
-        })
-      });
-
-      currentDriver.current_lat = lat;
-      currentDriver.current_lng = lng;
-    }
-
     function showJobNotification(job, timeout) {
       currentNotification = job;
       
       const html = `
-        <div class="job-info-row">
-          <strong>Pickup:</strong>
-          <span>${job.pickup_address}</span>
-        </div>
-        <div class="job-info-row">
-          <strong>Dropoff:</strong>
-          <span>${job.dropoff_address}</span>
-        </div>
-        <div class="job-info-row">
-          <strong>Distance:</strong>
-          <span>${job.estimated_distance.toFixed(1)} km</span>
-        </div>
-        <div class="job-info-row">
-          <strong>Earnings:</strong>
-          <span class="earnings-badge">₹${job.estimated_earnings}</span>
-        </div>
+        <p><strong>Pickup:</strong> ${job.pickup_address}</p>
+        <p><strong>Dropoff:</strong> ${job.dropoff_address}</p>
+        <p><strong>Distance:</strong> ${job.estimated_distance ? job.estimated_distance.toFixed(1) : 'N/A'} km</p>
+        <p><strong>Earnings:</strong> ₹${job.estimated_earnings || Math.round(job.estimated_distance * 50)}</p>
       `;
       
-      document.getElementById('notificationJobInfo').innerHTML = html;
+      document.getElementById('jobInfo').innerHTML = html;
       document.getElementById('jobNotification').classList.remove('hidden');
       
-      // Start countdown
-      let timeLeft = 30;
+      let timeLeft = timeout / 1000;
       document.getElementById('countdown').textContent = timeLeft;
       
       countdownInterval = setInterval(() => {
@@ -864,12 +554,9 @@
 
     async function acceptJob() {
       clearInterval(countdownInterval);
-      
-      // Hide notification and show loading
       document.getElementById('jobNotification').classList.add('hidden');
       
       try {
-        // Wait for backend confirmation
         const response = await fetch(`${API_URL}/api/jobs/${currentNotification.id}/accept`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -877,44 +564,49 @@
         });
         
         if (response.ok) {
-          // Backend confirmed - now update UI
-          activeJob = currentNotification;
+          // CRITICAL: Properly construct activeJob with ALL required fields
+          activeJob = {
+            id: currentNotification.id,
+            pickup_address: currentNotification.pickup_address,
+            pickup_lat: currentNotification.pickup_lat,
+            pickup_lng: currentNotification.pickup_lng,
+            dropoff_address: currentNotification.dropoff_address,
+            dropoff_lat: currentNotification.dropoff_lat,
+            dropoff_lng: currentNotification.dropoff_lng,
+            estimated_distance: currentNotification.estimated_distance || 0,
+            estimated_earnings: currentNotification.estimated_earnings || Math.round((currentNotification.estimated_distance || 0) * 50)
+          };
+          
           jobStatus = 'assigned';
           showActiveJob();
-          console.log('✅ Job accepted and confirmed');
+          console.log('✅ Job accepted:', activeJob);
         } else {
-          throw new Error('Backend rejected acceptance');
+          alert('Failed to accept job');
         }
       } catch (error) {
         console.error('❌ Failed to accept job:', error);
-        alert('Failed to accept job. It may have been assigned to another driver.');
-        currentNotification = null;
+        alert('Failed to accept job: ' + error.message);
       }
     }
 
-    async function declineJob() {
+    function declineJob() {
       clearInterval(countdownInterval);
-      
-      // Save notification ID before clearing
-      const jobId = currentNotification?.id;
-      
-      // Immediate UI update
       document.getElementById('jobNotification').classList.add('hidden');
       currentNotification = null;
-      
-      // Update backend in background
-      if (jobId) {
-        fetch(`${API_URL}/api/jobs/${jobId}/decline`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ driverId: currentDriver.id })
-        }).catch(error => console.error('Failed to sync decline:', error));
-      }
     }
 
     function showActiveJob() {
+      console.log('showActiveJob called with:', activeJob);
+      
+      if (!activeJob || !activeJob.id) {
+        console.error('❌ activeJob is invalid:', activeJob);
+        return;
+      }
+      
+      // Hide other sections
       document.getElementById('noJobSection').classList.add('hidden');
-      document.getElementById('availableJobsSection').classList.add('hidden');
+      
+      // Show active job section
       document.getElementById('activeJobSection').classList.remove('hidden');
       
       const html = `
@@ -929,39 +621,34 @@
       
       document.getElementById('activeJobDetails').innerHTML = html;
       
-      // Initialize map after a short delay to ensure div is visible
+      // Initialize map
       setTimeout(() => {
         try {
-          // Clear existing map if any
           if (map) {
             map.remove();
             map = null;
           }
           
-          // Create new map
           map = L.map('map').setView([activeJob.pickup_lat, activeJob.pickup_lng], 14);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-          }).addTo(map);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
           
-          // Add markers
           L.marker([activeJob.pickup_lat, activeJob.pickup_lng])
             .addTo(map)
-            .bindPopup('<b>Pickup Location</b><br>' + activeJob.pickup_address);
+            .bindPopup('<b>Pickup</b><br>' + activeJob.pickup_address);
           
           L.marker([activeJob.dropoff_lat, activeJob.dropoff_lng])
             .addTo(map)
-            .bindPopup('<b>Dropoff Location</b><br>' + activeJob.dropoff_address);
+            .bindPopup('<b>Dropoff</b><br>' + activeJob.dropoff_address);
           
-          // Fit bounds to show both markers
           const bounds = L.latLngBounds(
             [activeJob.pickup_lat, activeJob.pickup_lng],
             [activeJob.dropoff_lat, activeJob.dropoff_lng]
           );
           map.fitBounds(bounds, { padding: [50, 50] });
           
+          console.log('✅ Map initialized');
         } catch (error) {
-          console.error('Map initialization error:', error);
+          console.error('❌ Map error:', error);
         }
       }, 100);
       
@@ -975,59 +662,20 @@
       if (jobStatus === 'assigned') {
         actionBtn.textContent = 'Mark as Picked Up';
         actionBtn.className = 'btn btn-primary';
-        cancelBtn.classList.remove('hidden'); // Show cancel button
+        cancelBtn.classList.remove('hidden');
       } else if (jobStatus === 'in_progress') {
         actionBtn.textContent = 'Mark as Delivered';
-        actionBtn.className = 'btn btn-accept';
-        cancelBtn.classList.add('hidden'); // Hide cancel button after pickup
-      }
-    }
-
-    function showCancelConfirm() {
-      document.getElementById('cancelModal').classList.remove('hidden');
-    }
-
-    function closeCancelModal() {
-      document.getElementById('cancelModal').classList.add('hidden');
-      document.getElementById('cancelReason').value = '';
-    }
-
-    async function confirmCancel() {
-      const reason = document.getElementById('cancelReason').value || 'No reason provided';
-      
-      try {
-        const response = await fetch(`${API_URL}/api/jobs/${activeJob.id}/cancel`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            driverId: currentDriver.id,
-            reason 
-          })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-          alert(data.message);
-          closeCancelModal();
-          resetActiveJob();
-          
-          // Update stats to reflect penalty
-          currentDriver.acceptance_rate = Math.max(0, currentDriver.acceptance_rate - 0.1);
-          loadDriverStats();
-        } else {
-          alert(data.error);
-        }
-      } catch (error) {
-        alert('Failed to cancel job: ' + error.message);
+        actionBtn.className = 'btn btn-success';
+        cancelBtn.classList.add('hidden');
       }
     }
 
     async function handleJobAction() {
+      const actionBtn = document.getElementById('actionButton');
+      
       if (jobStatus === 'assigned') {
-        // Mark as picked up
-        jobStatus = 'in_progress';
-        updateActionButton();
+        actionBtn.disabled = true;
+        actionBtn.textContent = 'Marking as picked up...';
         
         try {
           await fetch(`${API_URL}/api/jobs/${activeJob.id}/pickup`, {
@@ -1035,23 +683,23 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ driverId: currentDriver.id })
           });
-          console.log('✅ Pickup confirmed by backend');
+          
+          jobStatus = 'in_progress';
+          updateActionButton();
+          actionBtn.disabled = false;
+          console.log('✅ Marked as picked up');
         } catch (error) {
           console.error('❌ Failed to mark as picked up:', error);
-          // Revert status
-          jobStatus = 'assigned';
-          updateActionButton();
-          alert('Failed to mark as picked up. Please try again.');
+          actionBtn.disabled = false;
+          actionBtn.textContent = 'Mark as Picked Up';
+          alert('Failed to mark as picked up');
         }
         
       } else if (jobStatus === 'in_progress') {
-        // Show loading state
-        const actionBtn = document.getElementById('actionButton');
         actionBtn.disabled = true;
         actionBtn.textContent = 'Completing...';
         
         try {
-          // Wait for backend to confirm completion
           const response = await fetch(`${API_URL}/api/jobs/${activeJob.id}/complete`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1059,41 +707,91 @@
           });
           
           if (response.ok) {
-            // Update earnings
             const earnings = activeJob.estimated_earnings;
             currentDriver.total_jobs = (currentDriver.total_jobs || 0) + 1;
             currentDriver.today_earnings = (currentDriver.today_earnings || 0) + earnings;
             
-            // Save to localStorage
             localStorage.setItem('currentUser', JSON.stringify(currentDriver));
             
-            // Show success
             alert(`✅ Job completed! You earned ₹${earnings}`);
-            
-            // Reset UI
             resetActiveJob();
             loadDriverStats();
             
-            console.log('✅ Job completed successfully');
-          } else {
-            throw new Error('Backend rejected completion');
+            console.log('✅ Job completed');
           }
         } catch (error) {
           console.error('❌ Failed to complete job:', error);
           actionBtn.disabled = false;
           actionBtn.textContent = 'Mark as Delivered';
-          alert('Failed to complete job. Please try again.');
+          alert('Failed to complete job');
         }
+      }
+    }
+
+    function showCancelConfirm() {
+      if (confirm('Cancel this job? You will receive a 10% penalty to your acceptance rate.')) {
+        cancelActiveJob();
+      }
+    }
+
+    async function cancelActiveJob() {
+      try {
+        await fetch(`${API_URL}/api/jobs/${activeJob.id}/cancel`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            driverId: currentDriver.id,
+            reason: 'Driver cancelled'
+          })
+        });
+        
+        alert('Job cancelled');
+        resetActiveJob();
+      } catch (error) {
+        alert('Failed to cancel job');
       }
     }
 
     function resetActiveJob() {
       jobStatus = 'none';
       activeJob = null;
+      
+      if (map) {
+        map.remove();
+        map = null;
+      }
+      
       document.getElementById('activeJobSection').classList.add('hidden');
       document.getElementById('noJobSection').classList.remove('hidden');
-      document.getElementById('availableJobsSection').classList.remove('hidden');
-      loadAvailableJobs(); // Refresh available jobs
+    }
+
+    async function loadActiveJob() {
+      try {
+        const response = await fetch(`${API_URL}/api/jobs?status=assigned`);
+        const jobs = await response.json();
+        
+        const myJob = jobs.find(j => j.driver_id === currentDriver.id);
+        
+        if (myJob) {
+          activeJob = {
+            id: myJob.id,
+            pickup_address: myJob.pickup_address,
+            pickup_lat: myJob.pickup_lat,
+            pickup_lng: myJob.pickup_lng,
+            dropoff_address: myJob.dropoff_address,
+            dropoff_lat: myJob.dropoff_lat,
+            dropoff_lng: myJob.dropoff_lng,
+            estimated_distance: myJob.estimated_distance_km || 0,
+            estimated_earnings: Math.round((myJob.estimated_distance_km || 0) * 50)
+          };
+          
+          jobStatus = 'assigned';
+          showActiveJob();
+          console.log('✅ Restored active job');
+        }
+      } catch (error) {
+        console.error('Failed to load active job:', error);
+      }
     }
   </script>
 </body>

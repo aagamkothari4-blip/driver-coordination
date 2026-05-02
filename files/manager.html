@@ -384,6 +384,32 @@
     let map = null;
     let driverMarkers = {};
 
+    // CRITICAL: Auto-detect protocol for both localhost AND production
+    const protocol = window.location.protocol; // http: or https:
+    const host = window.location.host; // includes port
+    const API_URL = `${protocol}//${host}`;
+    const WS_URL = protocol === 'https:' ? `wss://${window.location.hostname}` : `ws://${host}`;
+
+    console.log('API URL:', API_URL);
+    console.log('WebSocket URL:', WS_URL);
+
+    // Auto-login if session exists
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedUser = localStorage.getItem('currentUser');
+      if (savedUser) {
+        try {
+          currentUser = JSON.parse(savedUser);
+          document.getElementById('loginScreen').classList.add('hidden');
+          document.getElementById('dashboard').classList.remove('hidden');
+          document.getElementById('userName').textContent = currentUser.name;
+          initDashboard();
+        } catch (error) {
+          console.error('Failed to restore session:', error);
+          localStorage.removeItem('currentUser');
+        }
+      }
+    });
+
     // Login
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -391,7 +417,7 @@
       const password = document.getElementById('loginPassword').value;
 
       try {
-        const response = await fetch('http://localhost:3000/api/auth/login', {
+        const response = await fetch(`${API_URL}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ phone, password })
@@ -401,6 +427,7 @@
 
         if (response.ok) {
           currentUser = data.user;
+          localStorage.setItem('currentUser', JSON.stringify(data.user));
           document.getElementById('loginScreen').classList.add('hidden');
           document.getElementById('dashboard').classList.remove('hidden');
           document.getElementById('userName').textContent = data.user.name;
@@ -417,13 +444,14 @@
     function logout() {
       if (ws) ws.close();
       currentUser = null;
+      localStorage.removeItem('currentUser');
       document.getElementById('dashboard').classList.add('hidden');
       document.getElementById('loginScreen').classList.remove('hidden');
     }
 
     async function initDashboard() {
       // Initialize WebSocket
-      ws = new WebSocket(`ws://localhost:3000?userId=${currentUser.id}`);
+      ws = new WebSocket(`${WS_URL}?userId=${currentUser.id}`);
       
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
@@ -442,18 +470,16 @@
         }
       };
 
-      // Initialize map (centered on Pune, India)
+      // Initialize map
       map = L.map('map').setView([18.5204, 73.8567], 13);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
       }).addTo(map);
 
-      // Load initial data
       loadStats();
       loadJobs();
       loadDrivers();
       
-      // Refresh every 10 seconds
       setInterval(() => {
         loadStats();
         loadJobs();
@@ -462,7 +488,7 @@
 
     async function loadStats() {
       try {
-        const response = await fetch(`http://localhost:3000/api/analytics/summary?managerId=${currentUser.id}`);
+        const response = await fetch(`${API_URL}/api/analytics/summary?managerId=${currentUser.id}`);
         const stats = await response.json();
         
         document.getElementById('statTotal').textContent = stats.total_jobs;
@@ -476,7 +502,7 @@
 
     async function loadJobs() {
       try {
-        const response = await fetch(`http://localhost:3000/api/jobs?managerId=${currentUser.id}`);
+        const response = await fetch(`${API_URL}/api/jobs?managerId=${currentUser.id}`);
         const jobs = await response.json();
         
         const activeJobs = jobs.filter(j => !['completed', 'cancelled'].includes(j.status));
@@ -519,7 +545,7 @@
 
     async function loadDrivers() {
       try {
-        const response = await fetch('http://localhost:3000/api/drivers');
+        const response = await fetch(`${API_URL}/api/drivers`);
         const drivers = await response.json();
         
         drivers.forEach(driver => {
@@ -550,7 +576,6 @@
       }
     }
 
-    // Create Job Form
     document.getElementById('createJobForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -581,7 +606,7 @@
       };
 
       try {
-        const response = await fetch('http://localhost:3000/api/jobs', {
+        const response = await fetch(`${API_URL}/api/jobs`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(jobData)
@@ -604,7 +629,7 @@
       if (!confirm('Are you sure you want to cancel this job?')) return;
       
       try {
-        const response = await fetch(`http://localhost:3000/api/jobs/${jobId}`, {
+        const response = await fetch(`${API_URL}/api/jobs/${jobId}`, {
           method: 'DELETE'
         });
         
@@ -622,7 +647,6 @@
       document.getElementById('callDriverName').textContent = driverName;
       document.getElementById('callModal').classList.remove('hidden');
       
-      // Simulate ringing for 3 seconds
       setTimeout(() => {
         const statusEl = document.querySelector('.call-status');
         statusEl.textContent = 'Connected';
