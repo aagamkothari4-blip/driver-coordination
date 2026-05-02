@@ -213,7 +213,7 @@
     .job-detail { font-size: 14px; margin-bottom: 8px; color: #666; }
     .job-detail strong { color: #333; }
     
-    #map { height: 300px; border-radius: 8px; margin: 12px 0; }
+    #map { height: 400px; border-radius: 8px; margin: 16px 0; border: 2px solid #e0e0e0; }
     
     .login-container {
       min-height: 100vh;
@@ -397,8 +397,10 @@
         <h2>📍 Active Job</h2>
         <div id="activeJobDetails"></div>
         <div id="map"></div>
-        <button id="actionButton" class="btn btn-primary" onclick="handleJobAction()">Mark as Picked Up</button>
-        <button id="cancelButton" class="btn btn-warning" onclick="showCancelConfirm()">Cancel This Job</button>
+        <div style="display: flex; gap: 12px; margin-top: 16px;">
+          <button id="actionButton" class="btn btn-primary" onclick="handleJobAction()" style="flex: 1;">Mark as Picked Up</button>
+          <button id="cancelButton" class="btn btn-warning" onclick="showCancelConfirm()" style="flex: 1;">Cancel This Job</button>
+        </div>
       </div>
     </div>
 
@@ -460,12 +462,12 @@
     let activeJob = null;
     let jobStatus = 'none'; // none, assigned, in_progress
 
-    
-    const protocol = window.location.protocol; // http: or https:
-    const host = window.location.host; // includes port if present
-    const API_URL = `${protocol}//${host}`;
-    const WS_URL = protocol === 'https:' ? `wss://${window.location.hostname}` : `ws://${host}`;
-    
+    // Auto-detect API host (works on both computer and phone!)
+    const API_HOST = window.location.hostname;
+    const API_PORT = window.location.port || '3000';
+    const API_URL = `http://${API_HOST}:${API_PORT}`;
+    const WS_URL = `ws://${API_HOST}:${API_PORT}`;
+
     console.log('API URL:', API_URL); // For debugging
 
     // Auto-login if session exists
@@ -838,19 +840,41 @@
       
       document.getElementById('activeJobDetails').innerHTML = html;
       
-      // Initialize map
-      if (!map) {
-        map = L.map('map').setView([activeJob.pickup_lat, activeJob.pickup_lng], 14);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-      }
-      
-      // Add markers
-      L.marker([activeJob.pickup_lat, activeJob.pickup_lng])
-        .addTo(map)
-        .bindPopup('Pickup Location');
-      L.marker([activeJob.dropoff_lat, activeJob.dropoff_lng])
-        .addTo(map)
-        .bindPopup('Dropoff Location');
+      // Initialize map after a short delay to ensure div is visible
+      setTimeout(() => {
+        try {
+          // Clear existing map if any
+          if (map) {
+            map.remove();
+            map = null;
+          }
+          
+          // Create new map
+          map = L.map('map').setView([activeJob.pickup_lat, activeJob.pickup_lng], 14);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+          }).addTo(map);
+          
+          // Add markers
+          L.marker([activeJob.pickup_lat, activeJob.pickup_lng])
+            .addTo(map)
+            .bindPopup('<b>Pickup Location</b><br>' + activeJob.pickup_address);
+          
+          L.marker([activeJob.dropoff_lat, activeJob.dropoff_lng])
+            .addTo(map)
+            .bindPopup('<b>Dropoff Location</b><br>' + activeJob.dropoff_address);
+          
+          // Fit bounds to show both markers
+          const bounds = L.latLngBounds(
+            [activeJob.pickup_lat, activeJob.pickup_lng],
+            [activeJob.dropoff_lat, activeJob.dropoff_lng]
+          );
+          map.fitBounds(bounds, { padding: [50, 50] });
+          
+        } catch (error) {
+          console.error('Map initialization error:', error);
+        }
+      }, 100);
       
       updateActionButton();
     }
