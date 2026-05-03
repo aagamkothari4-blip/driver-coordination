@@ -398,6 +398,7 @@
     let ws = null;
     let map = null;
     let driverMarkers = {};
+    let driversCache = {}; // Store driver info for quick lookup
 
     // CRITICAL: Auto-detect protocol for both localhost AND production
     const protocol = window.location.protocol; // http: or https:
@@ -481,7 +482,14 @@
           showNotification('⚠️ Driver cancelled: ' + data.reason);
           loadJobs();
         } else if (data.type === 'DRIVER_LOCATION_UPDATE') {
-          updateDriverMarker(data.driverId, data.lat, data.lng);
+          // Look up driver info from cache
+          const driverInfo = driversCache[data.driverId];
+          if (driverInfo) {
+            updateDriverMarker(data.driverId, data.lat, data.lng, driverInfo.name, driverInfo.status);
+          } else {
+            // Fallback if not in cache
+            updateDriverMarker(data.driverId, data.lat, data.lng, 'Unknown', 'unknown');
+          }
         }
       };
 
@@ -564,6 +572,12 @@
         const drivers = await response.json();
         
         drivers.forEach(driver => {
+          // Cache driver info for WebSocket updates
+          driversCache[driver.id] = {
+            name: driver.name,
+            status: driver.availability_status
+          };
+          
           if (driver.current_lat && driver.current_lng) {
             updateDriverMarker(driver.id, driver.current_lat, driver.current_lng, driver.name, driver.availability_status);
           }
