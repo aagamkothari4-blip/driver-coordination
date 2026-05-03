@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Server Diagnostic Test</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #f5f5f5; }
+    .test { background: white; padding: 15px; margin: 10px 0; border-radius: 5px; }
+    .pass { border-left: 4px solid #28a745; }
+    .fail { border-left: 4px solid #dc3545; }
+    button { padding: 10px 20px; margin: 10px 0; cursor: pointer; }
+    pre { background: #f8f9fa; padding: 10px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Server Diagnostic Test</h1>
+  <button onclick="runAllTests()">Run All Tests</button>
+  
+  <div id="results"></div>
+
+  <script>
+    const API_URL = 'http://localhost:3000';
+    
+    async function runAllTests() {
+      const results = document.getElementById('results');
+      results.innerHTML = '<p>Running tests...</p>';
+      
+      let html = '';
+      
+      // Test 1: Check if server is running
+      html += await testEndpoint('Server Running', `${API_URL}/`);
+      
+      // Test 2: Check /api/drivers
+      html += await testEndpoint('GET /api/drivers', `${API_URL}/api/drivers`);
+      
+      // Test 3: Check POST /api/jobs
+      html += await testPostJob();
+      
+      results.innerHTML = html;
+    }
+    
+    async function testEndpoint(name, url) {
+      try {
+        const response = await fetch(url);
+        const text = await response.text();
+        
+        let parsed;
+        try {
+          parsed = JSON.parse(text);
+        } catch (e) {
+          return `
+            <div class="test fail">
+              <h3>❌ ${name}</h3>
+              <p>URL: ${url}</p>
+              <p>Status: ${response.status}</p>
+              <p>ERROR: Response is not JSON!</p>
+              <pre>${text.substring(0, 500)}</pre>
+            </div>
+          `;
+        }
+        
+        return `
+          <div class="test pass">
+            <h3>✅ ${name}</h3>
+            <p>URL: ${url}</p>
+            <p>Status: ${response.status}</p>
+            <pre>${JSON.stringify(parsed, null, 2).substring(0, 500)}</pre>
+          </div>
+        `;
+      } catch (error) {
+        return `
+          <div class="test fail">
+            <h3>❌ ${name}</h3>
+            <p>URL: ${url}</p>
+            <p>ERROR: ${error.message}</p>
+          </div>
+        `;
+      }
+    }
+    
+    async function testPostJob() {
+      const jobData = {
+        managerId: 'manager-001',
+        jobType: 'pickup',
+        pickupAddress: 'Test Pickup',
+        pickupLat: 18.5204,
+        pickupLng: 73.8567,
+        dropoffAddress: 'Test Dropoff',
+        dropoffLat: 18.5304,
+        dropoffLng: 73.8667,
+        carDetails: 'Test Car',
+        specialInstructions: 'Test',
+        priority: 'normal'
+      };
+      
+      try {
+        const response = await fetch(`${API_URL}/api/jobs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(jobData)
+        });
+        
+        const text = await response.text();
+        
+        let parsed;
+        try {
+          parsed = JSON.parse(text);
+        } catch (e) {
+          return `
+            <div class="test fail">
+              <h3>❌ POST /api/jobs</h3>
+              <p>Status: ${response.status}</p>
+              <p>ERROR: Response is not JSON!</p>
+              <pre>${text.substring(0, 500)}</pre>
+            </div>
+          `;
+        }
+        
+        return `
+          <div class="test pass">
+            <h3>✅ POST /api/jobs</h3>
+            <p>Status: ${response.status}</p>
+            <pre>${JSON.stringify(parsed, null, 2)}</pre>
+          </div>
+        `;
+      } catch (error) {
+        return `
+          <div class="test fail">
+            <h3>❌ POST /api/jobs</h3>
+            <p>ERROR: ${error.message}</p>
+          </div>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>

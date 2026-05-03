@@ -408,7 +408,6 @@
           const savedStatus = localStorage.getItem('driverStatus');
           if (savedStatus === 'online') {
             document.getElementById('statusToggle').checked = true;
-            toggleStatus();
           }
           
           initDriverApp();
@@ -466,6 +465,9 @@
       
       ws.onclose = () => {
         console.log('⚠️ WebSocket disconnected');
+        setTimeout(() => {
+          if (currentDriver) initDriverApp();
+        }, 5000);
       };
       
       ws.onmessage = (event) => {
@@ -564,7 +566,7 @@
         });
         
         if (response.ok) {
-          // CRITICAL: Properly construct activeJob with ALL required fields
+          // CRITICAL FIX: Properly construct activeJob with ALL required fields
           activeJob = {
             id: currentNotification.id,
             pickup_address: currentNotification.pickup_address,
@@ -596,7 +598,7 @@
     }
 
     function showActiveJob() {
-      console.log('showActiveJob called with:', activeJob);
+      console.log('📍 showActiveJob called with:', activeJob);
       
       if (!activeJob || !activeJob.id) {
         console.error('❌ activeJob is invalid:', activeJob);
@@ -767,10 +769,10 @@
 
     async function loadActiveJob() {
       try {
-        const response = await fetch(`${API_URL}/api/jobs?status=assigned`);
+        const response = await fetch(`${API_URL}/api/jobs?status=assigned,in_progress`);
         const jobs = await response.json();
         
-        const myJob = jobs.find(j => j.driver_id === currentDriver.id);
+        const myJob = jobs.find(j => j.assigned_driver === currentDriver.id);
         
         if (myJob) {
           activeJob = {
@@ -781,11 +783,11 @@
             dropoff_address: myJob.dropoff_address,
             dropoff_lat: myJob.dropoff_lat,
             dropoff_lng: myJob.dropoff_lng,
-            estimated_distance: myJob.estimated_distance_km || 0,
-            estimated_earnings: Math.round((myJob.estimated_distance_km || 0) * 50)
+            estimated_distance: myJob.estimated_distance || 0,
+            estimated_earnings: Math.round((myJob.estimated_distance || 0) * 50)
           };
           
-          jobStatus = 'assigned';
+          jobStatus = myJob.status === 'in_progress' ? 'in_progress' : 'assigned';
           showActiveJob();
           console.log('✅ Restored active job');
         }

@@ -100,6 +100,21 @@
     
     #map { height: 400px; border-radius: 8px; margin-bottom: 20px; }
     
+    /* Driver name labels - always visible */
+    .driver-label {
+      background: rgba(0, 0, 0, 0.8) !important;
+      border: none !important;
+      color: white !important;
+      font-weight: 600;
+      font-size: 12px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .driver-label::before {
+      border-right-color: rgba(0, 0, 0, 0.8) !important;
+    }
+    
     .jobs-list {
       max-height: 500px;
       overflow-y: auto;
@@ -383,6 +398,7 @@
     let ws = null;
     let map = null;
     let driverMarkers = {};
+    let driversCache = {}; // Store driver info for quick lookup
 
     // CRITICAL: Auto-detect protocol for both localhost AND production
     const protocol = window.location.protocol; // http: or https:
@@ -466,7 +482,14 @@
           showNotification('⚠️ Driver cancelled: ' + data.reason);
           loadJobs();
         } else if (data.type === 'DRIVER_LOCATION_UPDATE') {
-          updateDriverMarker(data.driverId, data.lat, data.lng);
+          // Look up driver info from cache
+          const driverInfo = driversCache[data.driverId];
+          if (driverInfo) {
+            updateDriverMarker(data.driverId, data.lat, data.lng, driverInfo.name, driverInfo.status);
+          } else {
+            // Fallback if not in cache
+            updateDriverMarker(data.driverId, data.lat, data.lng, 'Unknown', 'unknown');
+          }
         }
       };
 
@@ -549,6 +572,12 @@
         const drivers = await response.json();
         
         drivers.forEach(driver => {
+          // Cache driver info for WebSocket updates
+          driversCache[driver.id] = {
+            name: driver.name,
+            status: driver.availability_status
+          };
+          
           if (driver.current_lat && driver.current_lng) {
             updateDriverMarker(driver.id, driver.current_lat, driver.current_lng, driver.name, driver.availability_status);
           }
@@ -570,7 +599,15 @@
         
         const marker = L.marker([lat, lng], { icon }).addTo(map);
         if (name) {
-          marker.bindPopup(`<b>${name}</b><br>${status}`);
+          // Permanent tooltip (always visible)
+          marker.bindTooltip(name, {
+            permanent: true,
+            direction: 'right',
+            offset: [10, 0],
+            className: 'driver-label'
+          });
+          // Popup on click (with more details)
+          marker.bindPopup(`<b>${name}</b><br>Status: ${status}<br>Phone: ${driverId}`);
         }
         driverMarkers[driverId] = marker;
       }
