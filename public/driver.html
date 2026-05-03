@@ -284,6 +284,83 @@
       font-weight: 600;
       margin-top: 12px;
     }
+    
+    /* ===== MOBILE RESPONSIVE DESIGN ===== */
+    @media (max-width: 768px) {
+      .header { 
+        padding: 12px; 
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .header h1 { font-size: 18px; }
+      .header p { font-size: 12px; }
+      .btn-logout { 
+        margin-top: 8px;
+        width: 100%;
+      }
+      
+      .stats-grid { 
+        grid-template-columns: repeat(3, 1fr); 
+        gap: 8px; 
+        margin: 12px;
+      }
+      .stat-card { 
+        padding: 12px; 
+      }
+      .stat-card h3 {
+        font-size: 11px;
+      }
+      .stat-card .value { 
+        font-size: 20px; 
+      }
+      
+      .section { 
+        margin: 12px; 
+        padding: 16px; 
+      }
+      
+      .btn { 
+        padding: 12px 20px; 
+        font-size: 14px;
+        min-height: 44px; /* iOS minimum tap target */
+        touch-action: manipulation; /* Prevent double-tap zoom */
+      }
+      
+      #map { 
+        height: 300px; 
+      }
+      
+      .notification-card { 
+        padding: 24px; 
+        width: 95%;
+        max-width: 95%;
+      }
+      
+      .job-info p {
+        font-size: 13px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header h1 { font-size: 16px; }
+      .stat-card .value { font-size: 18px; }
+      .stat-card h3 { font-size: 10px; }
+      #map { height: 250px; }
+      .notification-card {
+        padding: 16px;
+      }
+    }
+
+    /* Touch-friendly enhancements */
+    .btn, button, input[type="checkbox"] { 
+      touch-action: manipulation;
+    }
+    
+    /* Prevent text selection on interactive elements */
+    .btn, .slider, .stat-card {
+      -webkit-user-select: none;
+      user-select: none;
+    }
   </style>
 </head>
 <body>
@@ -336,6 +413,17 @@
       <div class="stat-card">
         <h3>Rating</h3>
         <div class="value">⭐ <span id="rating">0.0</span></div>
+      </div>
+    </div>
+
+    <!-- GPS Status Indicator -->
+    <div class="section" style="background: white; padding: 16px; border-radius: 8px; margin: 16px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+      <div id="gpsStatus" style="font-size: 16px; margin-bottom: 8px;">
+        📍 GPS: <span id="gpsIndicator" style="color: #999; font-weight: 600;">Offline</span>
+      </div>
+      <div id="gpsCoords" style="color: #666; font-size: 12px; font-family: 'Courier New', monospace;"></div>
+      <div style="font-size: 11px; color: #999; margin-top: 8px;">
+        Toggle "Online" to activate GPS tracking
       </div>
     </div>
 
@@ -522,6 +610,13 @@
 
         currentDriver.availability_status = newStatus;
         localStorage.setItem('driverStatus', newStatus);
+        
+        // GPS TRACKING - Start when online, stop when offline
+        if (isOnline) {
+          startGPSTracking();
+        } else {
+          stopGPSTracking();
+        }
       } catch (error) {
         console.error('Failed to update status:', error);
       }
@@ -795,6 +890,146 @@
         console.error('Failed to load active job:', error);
       }
     }
+    
+    // ===== GPS TRACKING FUNCTIONS =====
+    let gpsWatchId = null;
+    let locationUpdateInterval = null;
+
+    function startGPSTracking() {
+      console.log('🛰️ Starting GPS tracking...');
+      
+      if (!navigator.geolocation) {
+        console.error('GPS not supported on this device');
+        updateGPSIndicator(null, null, 'Not Supported');
+        return;
+      }
+      
+      // Request permission and get initial position
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          console.log('✅ GPS acquired:', position.coords.latitude, position.coords.longitude);
+          updateDriverLocation(position.coords.latitude, position.coords.longitude);
+        },
+        error => {
+          console.error('❌ GPS error:', error);
+          if (error.code === 1) {
+            alert('Please enable location permissions in your browser settings');
+          }
+          updateGPSIndicator(null, null, 'Permission Denied');
+        },
+        { 
+          enableHighAccuracy: true,  // Use GPS chip, not WiFi
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+      
+      // Watch position continuously (updates when driver moves)
+      gpsWatchId = navigator.geolocation.watchPosition(
+        position => {
+          console.log('📍 GPS update:', position.coords.latitude.toFixed(6), position.coords.longitude.toFixed(6));
+          updateDriverLocation(position.coords.latitude, position.coords.longitude);
+        },
+        error => {
+          console.error('GPS watch error:', error);
+        },
+        { 
+          enableHighAccuracy: true,
+          timeout: 30000,
+          maximumAge: 0
+        }
+      );
+      
+      // Also send updates every 10 seconds (even if not moving)
+      locationUpdateInterval = setInterval(() => {
+        navigator.geolocation.getCurrentPosition(
+          position => {
+            updateDriverLocation(position.coords.latitude, position.coords.longitude);
+          },
+          null,
+          { enableHighAccuracy: true, maximumAge: 5000 }
+        );
+      }, 10000); // Every 10 seconds
+      
+      console.log('✅ GPS tracking started');
+    }
+
+    function stopGPSTracking() {
+      console.log('⏹️ Stopping GPS tracking');
+      
+      if (gpsWatchId) {
+        navigator.geolocation.clearWatch(gpsWatchId);
+        gpsWatchId = null;
+      }
+      
+      if (locationUpdateInterval) {
+        clearInterval(locationUpdateInterval);
+        locationUpdateInterval = null;
+      }
+      
+      updateGPSIndicator(null, null, 'Offline');
+    }
+
+    async function updateDriverLocation(lat, lng) {
+      try {
+        await fetch(`${API_URL}/api/drivers/location`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            driverId: currentDriver.id,
+            lat: lat,
+            lng: lng,
+            timestamp: new Date().toISOString()
+          })
+        });
+        
+        console.log('✅ Location sent to server:', lat.toFixed(6), lng.toFixed(6));
+        
+        // Update local driver object
+        currentDriver.current_lat = lat;
+        currentDriver.current_lng = lng;
+        
+        // Update GPS indicator on screen
+        updateGPSIndicator(lat, lng, 'Active');
+        
+      } catch (error) {
+        console.error('❌ Failed to send location:', error);
+      }
+    }
+
+    function updateGPSIndicator(lat, lng, status) {
+      const indicator = document.getElementById('gpsIndicator');
+      const coords = document.getElementById('gpsCoords');
+      
+      if (!indicator || !coords) return;
+      
+      if (status === 'Active' && lat && lng) {
+        indicator.innerHTML = '<span style="color: #28a745; font-weight: 600;">Active ✓</span>';
+        coords.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      } else if (status === 'Permission Denied') {
+        indicator.innerHTML = '<span style="color: #dc3545; font-weight: 600;">Permission Denied</span>';
+        coords.textContent = 'Enable location in Settings → Privacy → Location';
+      } else if (status === 'Not Supported') {
+        indicator.innerHTML = '<span style="color: #999; font-weight: 600;">Not Supported</span>';
+        coords.textContent = 'This device does not support GPS';
+      } else {
+        indicator.innerHTML = '<span style="color: #999; font-weight: 600;">Offline</span>';
+        coords.textContent = '';
+      }
+    }
+
+    // Request location permission on first user interaction (iOS Safari requirement)
+    let permissionRequested = false;
+    document.addEventListener('click', function requestPermissionOnce() {
+      if (!permissionRequested && navigator.geolocation) {
+        permissionRequested = true;
+        navigator.geolocation.getCurrentPosition(
+          () => console.log('✅ Location permission granted'),
+          () => console.log('⚠️ Location permission denied'),
+          { enableHighAccuracy: true }
+        );
+      }
+    }, { once: true });
   </script>
 </body>
 </html>

@@ -262,6 +262,30 @@
     }
     
     .hidden { display: none !important; }
+    
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+      .container { padding: 12px; }
+      .header { 
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 12px;
+      }
+      .header h1 { font-size: 20px; margin-bottom: 8px; }
+      .logout-btn { margin-left: 0; margin-top: 8px; }
+      .stats-grid { 
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+      input, select, textarea, button {
+        min-height: 44px; /* iOS tap target */
+      }
+    }
+    
+    .hidden { display: none; }
   </style>
 </head>
 <body>
@@ -318,6 +342,23 @@
         </div>
       </div>
 
+      <!-- Tab Navigation -->
+      <div style="background: white; margin-bottom: 20px; border-radius: 8px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+          <button onclick="showTab('jobs')" id="tabJobs" class="tab-btn" style="flex: 1; min-width: 100px; padding: 12px 20px; border: none; background: #667eea; color: white; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px;">
+            📋 Jobs
+          </button>
+          <button onclick="showTab('history')" id="tabHistory" class="tab-btn" style="flex: 1; min-width: 100px; padding: 12px 20px; border: none; background: #e0e0e0; color: #333; border-radius: 6px; cursor: pointer; font-size: 14px;">
+            📊 History
+          </button>
+          <button onclick="showTab('drivers')" id="tabDrivers" class="tab-btn" style="flex: 1; min-width: 100px; padding: 12px 20px; border: none; background: #e0e0e0; color: #333; border-radius: 6px; cursor: pointer; font-size: 14px;">
+            👥 Drivers
+          </button>
+        </div>
+      </div>
+
+      <!-- Jobs Tab (existing content) -->
+      <div id="jobsTab">
       <!-- Map -->
       <div class="card">
         <h2>📍 Live Driver Locations</h2>
@@ -369,6 +410,89 @@
           <div class="jobs-list" id="jobsList"></div>
         </div>
       </div>
+      </div><!-- End Jobs Tab -->
+
+      <!-- Drivers Tab -->
+      <div id="driversTab" class="hidden">
+        <div class="card">
+          <h2>👥 Driver Management</h2>
+          <button onclick="showAddDriverForm()" class="btn btn-primary" style="margin-bottom: 20px;">
+            ➕ Add New Driver
+          </button>
+          
+          <!-- Add Driver Form (hidden by default) -->
+          <div id="addDriverForm" class="hidden" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h3 style="margin-bottom: 16px;">Add New Driver</h3>
+            <form onsubmit="addDriver(event)">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px;">
+                <div class="form-group">
+                  <label>Name</label>
+                  <input type="text" id="newDriverName" placeholder="Driver Name" required>
+                </div>
+                <div class="form-group">
+                  <label>Phone (10 digits)</label>
+                  <input type="tel" id="newDriverPhone" placeholder="9876543210" required pattern="[0-9]{10}">
+                </div>
+                <div class="form-group">
+                  <label>Password</label>
+                  <input type="password" id="newDriverPassword" placeholder="Password" required minlength="6">
+                </div>
+              </div>
+              <div style="display: flex; gap: 12px;">
+                <button type="submit" class="btn btn-primary">Add Driver</button>
+                <button type="button" onclick="hideAddDriverForm()" class="btn" style="background: #6c757d; color: white;">Cancel</button>
+              </div>
+            </form>
+          </div>
+          
+          <!-- Drivers List -->
+          <div id="driversList" style="display: grid; gap: 12px;"></div>
+        </div>
+      </div><!-- End Drivers Tab -->
+
+      <!-- History Tab -->
+      <div id="historyTab" class="hidden">
+        <div class="card">
+          <h2>📊 Job History</h2>
+          
+          <!-- Filters -->
+          <div style="background: #f8f9fa; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px;">
+              <div class="form-group">
+                <label>From Date</label>
+                <input type="date" id="filterFromDate">
+              </div>
+              <div class="form-group">
+                <label>To Date</label>
+                <input type="date" id="filterToDate">
+              </div>
+              <div class="form-group">
+                <label>Status</label>
+                <select id="filterStatus">
+                  <option value="all">All</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="pending">Pending</option>
+                  <option value="in_progress">In Progress</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Driver</label>
+                <select id="filterDriver">
+                  <option value="all">All Drivers</option>
+                </select>
+              </div>
+            </div>
+            <button onclick="applyHistoryFilters()" class="btn btn-primary">
+              Apply Filters
+            </button>
+          </div>
+          
+          <!-- History List -->
+          <div id="historyList" style="display: grid; gap: 12px;"></div>
+        </div>
+      </div><!-- End History Tab -->
+
     </div>
   </div>
 
@@ -709,6 +833,223 @@
       setTimeout(() => {
         notif.remove();
       }, 3000);
+    }
+
+    // ===== TAB NAVIGATION =====
+    function showTab(tab) {
+      // Hide all tabs
+      document.getElementById('jobsTab').classList.add('hidden');
+      document.getElementById('driversTab').classList.add('hidden');
+      document.getElementById('historyTab').classList.add('hidden');
+      
+      // Reset tab button styles
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.style.background = '#e0e0e0';
+        btn.style.color = '#333';
+      });
+      
+      // Show selected tab and highlight button
+      if (tab === 'jobs') {
+        document.getElementById('jobsTab').classList.remove('hidden');
+        document.getElementById('tabJobs').style.background = '#667eea';
+        document.getElementById('tabJobs').style.color = 'white';
+      } else if (tab === 'drivers') {
+        document.getElementById('driversTab').classList.remove('hidden');
+        document.getElementById('tabDrivers').style.background = '#667eea';
+        document.getElementById('tabDrivers').style.color = 'white';
+        loadAllDrivers();
+      } else if (tab === 'history') {
+        document.getElementById('historyTab').classList.remove('hidden');
+        document.getElementById('tabHistory').style.background = '#667eea';
+        document.getElementById('tabHistory').style.color = 'white';
+        loadHistoryFilters();
+        loadJobHistory();
+      }
+    }
+
+    // ===== DRIVER MANAGEMENT =====
+    function showAddDriverForm() {
+      document.getElementById('addDriverForm').classList.remove('hidden');
+    }
+
+    function hideAddDriverForm() {
+      document.getElementById('addDriverForm').classList.add('hidden');
+      document.getElementById('newDriverName').value = '';
+      document.getElementById('newDriverPhone').value = '';
+      document.getElementById('newDriverPassword').value = '';
+    }
+
+    async function addDriver(e) {
+      e.preventDefault();
+      
+      const data = {
+        name: document.getElementById('newDriverName').value,
+        phone: document.getElementById('newDriverPhone').value,
+        password: document.getElementById('newDriverPassword').value,
+        initial_lat: 18.5204,
+        initial_lng: 73.8567
+      };
+      
+      try {
+        const response = await fetch(`${API_URL}/api/admin/drivers`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        
+        if (response.ok) {
+          showNotification('✅ Driver added successfully!');
+          hideAddDriverForm();
+          loadAllDrivers();
+        } else {
+          const error = await response.json();
+          showNotification('Error: ' + error.error);
+        }
+      } catch (error) {
+        showNotification('Failed to add driver');
+      }
+    }
+
+    async function loadAllDrivers() {
+      try {
+        const response = await fetch(`${API_URL}/api/admin/drivers`);
+        const drivers = await response.json();
+        
+        const html = drivers.map(driver => `
+          <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0;">
+            <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 12px;">
+              <div style="flex: 1; min-width: 200px;">
+                <h3 style="margin: 0 0 8px 0; font-size: 18px;">👤 ${driver.name}</h3>
+                <p style="margin: 4px 0; color: #666;">📞 <a href="tel:${driver.phone}" style="color: #667eea; text-decoration: none;">${driver.phone}</a></p>
+                <p style="margin: 4px 0;">
+                  Status: <span style="color: ${driver.availability_status === 'online' ? '#28a745' : '#999'}; font-weight: 600;">
+                    ${driver.availability_status === 'online' ? '🟢 Online' : '⚪ Offline'}
+                  </span>
+                </p>
+                <p style="margin: 4px 0; font-size: 14px; color: #666;">
+                  Jobs: ${driver.total_jobs_completed || 0} completed | Rating: ⭐ ${(driver.average_rating || 0).toFixed(1)}
+                </p>
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button onclick="removeDriver('${driver.id}', '${driver.name}')" class="btn btn-danger" style="white-space: nowrap;">
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+        
+        document.getElementById('driversList').innerHTML = html || '<p style="color: #666; text-align: center; padding: 40px;">No drivers found</p>';
+      } catch (error) {
+        console.error('Failed to load drivers:', error);
+        document.getElementById('driversList').innerHTML = '<p style="color: #dc3545; text-align: center;">Failed to load drivers</p>';
+      }
+    }
+
+    async function removeDriver(driverId, driverName) {
+      if (!confirm(`Remove driver ${driverName}?\n\nThis will:\n- Delete their account\n- Remove all their data\n\nThis action cannot be undone.`)) {
+        return;
+      }
+      
+      try {
+        const response = await fetch(`${API_URL}/api/admin/drivers/${driverId}`, {
+          method: 'DELETE'
+        });
+        
+        if (response.ok) {
+          showNotification('✅ Driver removed successfully');
+          loadAllDrivers();
+        } else {
+          showNotification('❌ Failed to remove driver');
+        }
+      } catch (error) {
+        showNotification('❌ Error removing driver');
+      }
+    }
+
+    // ===== JOB HISTORY =====
+    async function loadHistoryFilters() {
+      // Load drivers for filter dropdown
+      try {
+        const response = await fetch(`${API_URL}/api/drivers`);
+        const drivers = await response.json();
+        
+        const options = drivers.map(d => 
+          `<option value="${d.id}">${d.name}</option>`
+        ).join('');
+        
+        document.getElementById('filterDriver').innerHTML = 
+          '<option value="all">All Drivers</option>' + options;
+          
+        // Set default dates (last 7 days)
+        const today = new Date();
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        
+        document.getElementById('filterToDate').valueAsDate = today;
+        document.getElementById('filterFromDate').valueAsDate = weekAgo;
+      } catch (error) {
+        console.error('Failed to load filters:', error);
+      }
+    }
+
+    function applyHistoryFilters() {
+      loadJobHistory();
+    }
+
+    async function loadJobHistory() {
+      const from = document.getElementById('filterFromDate').value;
+      const to = document.getElementById('filterToDate').value;
+      const status = document.getElementById('filterStatus').value;
+      const driver = document.getElementById('filterDriver').value;
+      
+      const params = new URLSearchParams();
+      if (from) params.append('from', from);
+      if (to) params.append('to', to);
+      if (status && status !== 'all') params.append('status', status);
+      if (driver && driver !== 'all') params.append('driver', driver);
+      
+      try {
+        const response = await fetch(`${API_URL}/api/jobs/history?${params}`);
+        const jobs = await response.json();
+        
+        const html = jobs.map(job => `
+          <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0;">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+              <div>
+                <strong style="font-size: 16px;">${new Date(job.created_at).toLocaleString()}</strong>
+                <p style="margin: 4px 0; color: #666; font-size: 14px;">Job #${job.id.slice(0, 8)}</p>
+              </div>
+              <span style="padding: 6px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; white-space: nowrap;
+                background: ${job.status === 'completed' ? '#d4edda' : job.status === 'cancelled' ? '#f8d7da' : job.status === 'in_progress' ? '#fff3cd' : '#e2e3e5'}; 
+                color: ${job.status === 'completed' ? '#155724' : job.status === 'cancelled' ? '#721c24' : job.status === 'in_progress' ? '#856404' : '#383d41'};">
+                ${job.status.toUpperCase()}
+              </span>
+            </div>
+            
+            <div style="margin: 12px 0; padding: 12px; background: #f8f9fa; border-radius: 6px;">
+              <p style="margin: 4px 0; font-size: 14px;"><strong>📍 Pickup:</strong> ${job.pickup_address}</p>
+              <p style="margin: 4px 0; font-size: 14px;"><strong>📍 Dropoff:</strong> ${job.dropoff_address}</p>
+              ${job.driver_name ? `<p style="margin: 8px 0 4px 0; font-size: 14px;"><strong>🚗 Driver:</strong> ${job.driver_name}</p>` : ''}
+            </div>
+            
+            ${job.review ? `
+              <div style="background: #e7f3ff; padding: 12px; border-radius: 6px; border-left: 4px solid #667eea;">
+                <strong style="color: #667eea;">⭐ Customer Review</strong>
+                <p style="margin: 8px 0 4px 0; font-size: 16px; font-weight: 600;">
+                  ${'⭐'.repeat(job.review.rating)} (${job.review.rating}/5)
+                </p>
+                ${job.review.comments ? `<p style="margin: 4px 0; font-style: italic; color: #555;">"${job.review.comments}"</p>` : ''}
+              </div>
+            ` : ''}
+          </div>
+        `).join('');
+        
+        document.getElementById('historyList').innerHTML = html || '<p style="color: #666; text-align: center; padding: 40px;">No jobs found for selected filters</p>';
+      } catch (error) {
+        console.error('Failed to load history:', error);
+        document.getElementById('historyList').innerHTML = '<p style="color: #dc3545; text-align: center;">Failed to load job history</p>';
+      }
     }
   </script>
 </body>
