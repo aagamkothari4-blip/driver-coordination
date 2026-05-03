@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track Your Delivery - Driver Coordination</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    }
+    
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    
+    .header h1 {
+      font-size: 28px;
+      color: white;
+      margin-bottom: 8px;
+    }
+    
+    .header p {
+      color: rgba(255,255,255,0.9);
+      font-size: 16px;
+    }
+    
+    .job-id-input {
+      margin-bottom: 24px;
+    }
+    
+    .job-id-input input {
+      width: 100%;
+      padding: 14px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+    
+    .job-id-input button {
+      width: 100%;
+      padding: 14px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    
+    .status-pending { background: #ffc107; color: #333; }
+    .status-assigned { background: #17a2b8; color: white; }
+    .status-in_progress { background: #28a745; color: white; }
+    .status-completed { background: #6c757d; color: white; }
+    
+    .timeline {
+      position: relative;
+      padding-left: 32px;
+      margin: 24px 0;
+    }
+    
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 8px;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #e0e0e0;
+    }
+    
+    .timeline-item {
+      position: relative;
+      margin-bottom: 24px;
+    }
+    
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -28px;
+      top: 4px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #e0e0e0;
+      border: 3px solid white;
+      box-shadow: 0 0 0 2px #e0e0e0;
+    }
+    
+    .timeline-item.active::before {
+      background: #28a745;
+      box-shadow: 0 0 0 2px #28a745;
+    }
+    
+    .timeline-item.completed::before {
+      background: #28a745;
+      box-shadow: 0 0 0 2px #28a745;
+    }
+    
+    .timeline-item h3 {
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 4px;
+    }
+    
+    .timeline-item p {
+      font-size: 14px;
+      color: #666;
+    }
+    
+    .driver-info {
+      background: #f8f9fa;
+      padding: 16px;
+      border-radius: 8px;
+      margin-top: 16px;
+    }
+    
+    .driver-info h3 {
+      font-size: 16px;
+      margin-bottom: 12px;
+    }
+    
+    .driver-detail {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    
+    .call-btn {
+      width: 100%;
+      padding: 12px;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 12px;
+      text-decoration: none;
+      display: block;
+      text-align: center;
+    }
+    
+    #map {
+      height: 300px;
+      border-radius: 8px;
+      margin-top: 16px;
+    }
+    
+    .hidden {
+      display: none !important;
+    }
+    
+    .error {
+      background: #dc3545;
+      color: white;
+      padding: 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚗 Track Your Delivery</h1>
+      <p>Enter your job ID to track your car's pickup/delivery</p>
+    </div>
+
+    <div class="card">
+      <div id="searchSection">
+        <div class="job-id-input">
+          <input 
+            type="text" 
+            id="jobIdInput" 
+            placeholder="Enter Job ID (e.g., abc12345)"
+          >
+          <button onclick="trackJob()">Track My Car</button>
+        </div>
+      </div>
+
+      <div id="errorMessage" class="error hidden"></div>
+
+      <div id="jobDetails" class="hidden">
+        <h2 style="margin-bottom: 16px;">Job Status</h2>
+        <div id="statusBadge"></div>
+        
+        <div class="timeline" id="timeline"></div>
+        
+        <div id="driverInfo" class="hidden"></div>
+        
+        <div id="mapContainer" class="hidden">
+          <h3 style="margin-bottom: 12px;">Live Location</h3>
+          <div id="map"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const protocol = window.location.protocol;
+    const host = window.location.host;
+    const API_URL = `${protocol}//${host}`;
+    
+    let map = null;
+    let jobData = null;
+    let refreshInterval = null;
+
+    async function trackJob() {
+      const jobId = document.getElementById('jobIdInput').value.trim();
+      
+      if (!jobId) {
+        showError('Please enter a job ID');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_URL}/api/jobs/${jobId}`);
+        
+        if (!response.ok) {
+          showError('Job not found. Please check your Job ID.');
+          return;
+        }
+
+        jobData = await response.json();
+        displayJobDetails();
+        
+        // Auto-refresh every 10 seconds if job is active
+        if (jobData.status === 'assigned' || jobData.status === 'in_progress') {
+          if (refreshInterval) clearInterval(refreshInterval);
+          refreshInterval = setInterval(() => trackJob(), 10000);
+        }
+        
+      } catch (error) {
+        showError('Failed to load job details. Please try again.');
+      }
+    }
+
+    function showError(message) {
+      document.getElementById('errorMessage').textContent = message;
+      document.getElementById('errorMessage').classList.remove('hidden');
+      document.getElementById('jobDetails').classList.add('hidden');
+    }
+
+    function displayJobDetails() {
+      document.getElementById('errorMessage').classList.add('hidden');
+      document.getElementById('jobDetails').classList.remove('hidden');
+      
+      // Status badge
+      const statusLabels = {
+        pending: 'Finding Driver...',
+        assigned: 'Driver Assigned',
+        in_progress: 'In Transit',
+        completed: 'Completed',
+        cancelled: 'Cancelled'
+      };
+      
+      document.getElementById('statusBadge').innerHTML = `
+        <span class="status-badge status-${jobData.status}">
+          ${statusLabels[jobData.status] || jobData.status}
+        </span>
+      `;
+      
+      // Timeline
+      const timelineSteps = [
+        { key: 'created', label: 'Job Created', time: jobData.created_at },
+        { key: 'assigned', label: 'Driver Assigned', time: jobData.assigned_at },
+        { key: 'started', label: 'Pickup Completed', time: jobData.started_at },
+        { key: 'completed', label: 'Delivered', time: jobData.completed_at }
+      ];
+      
+      const statusOrder = ['pending', 'assigned', 'in_progress', 'completed'];
+      const currentIndex = statusOrder.indexOf(jobData.status);
+      
+      let timelineHTML = '';
+      timelineSteps.forEach((step, index) => {
+        let itemClass = '';
+        if (index < currentIndex) itemClass = 'completed';
+        else if (index === currentIndex) itemClass = 'active';
+        
+        timelineHTML += `
+          <div class="timeline-item ${itemClass}">
+            <h3>${step.label}</h3>
+            <p>${step.time ? new Date(step.time).toLocaleString() : 'Pending'}</p>
+          </div>
+        `;
+      });
+      
+      document.getElementById('timeline').innerHTML = timelineHTML;
+      
+      // Driver info (if assigned)
+      if (jobData.assigned_driver && jobData.driver_name) {
+        document.getElementById('driverInfo').classList.remove('hidden');
+        document.getElementById('driverInfo').innerHTML = `
+          <div class="driver-info">
+            <h3>👤 Your Driver</h3>
+            <div class="driver-detail">
+              <span>Name:</span>
+              <strong>${jobData.driver_name}</strong>
+            </div>
+            <div class="driver-detail">
+              <span>Phone:</span>
+              <strong>${jobData.driver_phone}</strong>
+            </div>
+            <a href="tel:${jobData.driver_phone}" class="call-btn">
+              📞 Call Driver
+            </a>
+          </div>
+        `;
+      }
+      
+      // Map
+      if (jobData.pickup_lat && jobData.dropoff_lat) {
+        document.getElementById('mapContainer').classList.remove('hidden');
+        
+        setTimeout(() => {
+          if (map) {
+            map.remove();
+          }
+          
+          map = L.map('map').setView([jobData.pickup_lat, jobData.pickup_lng], 13);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+          
+          L.marker([jobData.pickup_lat, jobData.pickup_lng])
+            .addTo(map)
+            .bindPopup('<b>Pickup</b><br>' + jobData.pickup_address);
+          
+          L.marker([jobData.dropoff_lat, jobData.dropoff_lng])
+            .addTo(map)
+            .bindPopup('<b>Dropoff</b><br>' + jobData.dropoff_address);
+          
+          const bounds = L.latLngBounds(
+            [jobData.pickup_lat, jobData.pickup_lng],
+            [jobData.dropoff_lat, jobData.dropoff_lng]
+          );
+          map.fitBounds(bounds, { padding: [50, 50] });
+        }, 100);
+      }
+    }
+
+    // Check for job ID in URL (e.g., ?job=abc123)
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const jobId = urlParams.get('job');
+      if (jobId) {
+        document.getElementById('jobIdInput').value = jobId;
+        trackJob();
+      }
+    });
+  </script>
+</body>
+</html>
