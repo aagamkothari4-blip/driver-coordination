@@ -28,20 +28,6 @@
       "name": "Priya Patel",
       "phone": "9876543203",
       "password": "driver123"
-    },
-    {
-      "id": "driver-004",
-      "role": "driver",
-      "name": "Suresh Yadav",
-      "phone": "9876543204",
-      "password": "driver123"
-    },
-    {
-      "id": "driver-005",
-      "role": "driver",
-      "name": "Neha Singh",
-      "phone": "9876543205",
-      "password": "driver123"
     }
   ],
   "drivers": [
@@ -49,11 +35,11 @@
       "id": "driver-001",
       "name": "Rajesh Kumar",
       "phone": "9876543201",
-      "availability_status": "online",
+      "availability_status": "offline",
       "current_lat": 18.5204,
       "current_lng": 73.8567,
-      "acceptance_rate": 1,
-      "total_jobs": 1,
+      "acceptance_rate": 1.0,
+      "total_jobs": 0,
       "total_jobs_completed": 0,
       "average_rating": 0,
       "today_earnings": 0
@@ -65,7 +51,7 @@
       "availability_status": "offline",
       "current_lat": 18.5354,
       "current_lng": 73.8567,
-      "acceptance_rate": 1,
+      "acceptance_rate": 1.0,
       "total_jobs": 0,
       "total_jobs_completed": 0,
       "average_rating": 0,
@@ -78,100 +64,15 @@
       "availability_status": "offline",
       "current_lat": 18.4804,
       "current_lng": 73.8567,
-      "acceptance_rate": 1,
-      "total_jobs": 0,
-      "total_jobs_completed": 0,
-      "average_rating": 0,
-      "today_earnings": 0
-    },
-    {
-      "id": "driver-004",
-      "name": "Suresh Yadav",
-      "phone": "9876543204",
-      "availability_status": "offline",
-      "current_lat": 18.5204,
-      "current_lng": 73.9367,
-      "acceptance_rate": 1,
-      "total_jobs": 0,
-      "total_jobs_completed": 0,
-      "average_rating": 0,
-      "today_earnings": 0
-    },
-    {
-      "id": "driver-005",
-      "name": "Neha Singh",
-      "phone": "9876543205",
-      "availability_status": "offline",
-      "current_lat": 18.5204,
-      "current_lng": 73.7767,
-      "acceptance_rate": 1,
+      "acceptance_rate": 1.0,
       "total_jobs": 0,
       "total_jobs_completed": 0,
       "average_rating": 0,
       "today_earnings": 0
     }
   ],
-  "jobs": [
-    {
-      "id": "40f31b56-0fae-406b-80b6-8f7627f6ef26",
-      "created_by": "driver-001",
-      "assigned_driver": null,
-      "job_type": "pickup",
-      "priority": "normal",
-      "status": "unassigned",
-      "pickup_address": "1,North Main Road, Koregaon Park",
-      "pickup_lat": 18.53388203216176,
-      "pickup_lng": 73.89500732012485,
-      "dropoff_address": "Camp",
-      "dropoff_lat": 18.48905977121766,
-      "dropoff_lng": 73.87526947683953,
-      "car_details": "Celerio, MH-14-EY-4464",
-      "special_instructions": "",
-      "estimated_distance": 5.401082838048511,
-      "created_at": "2026-05-03T09:57:28.083Z",
-      "assigned_at": null,
-      "started_at": null,
-      "completed_at": null
-    },
-    {
-      "id": "7e8adfba-cff0-4bd1-8c60-75ef4b83531d",
-      "created_by": "driver-001",
-      "assigned_driver": "driver-001",
-      "job_type": "delivery",
-      "priority": "normal",
-      "status": "completed",
-      "pickup_address": "Shivajinagar",
-      "pickup_lat": 18.507344812955996,
-      "pickup_lng": 73.81136861224203,
-      "dropoff_address": "Camp",
-      "dropoff_lat": 18.50046576748464,
-      "dropoff_lng": 73.82768867955377,
-      "car_details": "S-Cross MH12QF8856",
-      "special_instructions": "",
-      "estimated_distance": 1.8832323006601548,
-      "created_at": "2026-05-03T10:11:01.659Z",
-      "assigned_at": "2026-05-03T10:11:08.080Z",
-      "started_at": "2026-05-03T10:11:27.412Z",
-      "completed_at": "2026-05-03T10:11:33.102Z"
-    }
-  ],
-  "job_queue": [
-    {
-      "id": "8b6af888-206b-4152-af5e-8903a4c65057",
-      "job_id": "40f31b56-0fae-406b-80b6-8f7627f6ef26",
-      "driver_id": "driver-001",
-      "position": 0,
-      "notified_at": "2026-05-03T09:57:29.090Z",
-      "status": "timeout"
-    },
-    {
-      "id": "77777c01-1a05-4fb1-98fb-2dcf151d8feb",
-      "job_id": "7e8adfba-cff0-4bd1-8c60-75ef4b83531d",
-      "driver_id": "driver-001",
-      "position": 0,
-      "notified_at": "2026-05-03T10:11:02.667Z",
-      "status": "accepted"
-    }
-  ],
+  "jobs": [],
+  "job_queue": [],
+  "reviews": [],
   "payments": []
 }

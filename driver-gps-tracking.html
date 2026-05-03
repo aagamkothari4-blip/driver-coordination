@@ -1,0 +1,198 @@
+<!-- Add this section to driver.html -->
+
+<!-- GPS Tracking Feature - Add to <script> section -->
+
+<script>
+// GPS Tracking Variables
+let gpsWatchId = null;
+let locationUpdateInterval = null;
+
+// Start GPS tracking when driver goes online
+async function toggleStatus() {
+  const isOnline = document.getElementById('statusToggle').checked;
+  const newStatus = isOnline ? 'online' : 'offline';
+
+  try {
+    await fetch(`${API_URL}/api/drivers/availability`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        driverId: currentDriver.id,
+        status: newStatus
+      })
+    });
+
+    currentDriver.availability_status = newStatus;
+    localStorage.setItem('driverStatus', newStatus);
+    
+    // START/STOP GPS TRACKING
+    if (isOnline) {
+      startGPSTracking();
+    } else {
+      stopGPSTracking();
+    }
+  } catch (error) {
+    console.error('Failed to update status:', error);
+  }
+}
+
+// Start real-time GPS tracking
+function startGPSTracking() {
+  console.log('🛰️ Starting GPS tracking...');
+  
+  // Check if geolocation is available
+  if (!navigator.geolocation) {
+    alert('GPS not supported on this device');
+    return;
+  }
+  
+  // Get initial position
+  navigator.geolocation.getCurrentPosition(
+    position => {
+      console.log('✅ GPS acquired:', position.coords);
+      updateDriverLocation(position.coords.latitude, position.coords.longitude);
+    },
+    error => {
+      console.error('❌ GPS error:', error);
+      alert('Please enable location permissions in your browser settings');
+    },
+    {
+      enableHighAccuracy: true, // Use GPS, not WiFi
+      timeout: 10000,
+      maximumAge: 0
+    }
+  );
+  
+  // Watch position continuously (updates when driver moves)
+  gpsWatchId = navigator.geolocation.watchPosition(
+    position => {
+      console.log('📍 GPS update:', position.coords.latitude, position.coords.longitude);
+      updateDriverLocation(position.coords.latitude, position.coords.longitude);
+    },
+    error => {
+      console.error('❌ GPS watch error:', error);
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 30000,
+      maximumAge: 0
+    }
+  );
+  
+  // Also send updates every 10 seconds (even if not moving)
+  locationUpdateInterval = setInterval(() => {
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        updateDriverLocation(position.coords.latitude, position.coords.longitude);
+      },
+      null,
+      { enableHighAccuracy: true, maximumAge: 5000 }
+    );
+  }, 10000); // Every 10 seconds
+}
+
+// Stop GPS tracking
+function stopGPSTracking() {
+  console.log('⏹️ Stopping GPS tracking...');
+  
+  if (gpsWatchId) {
+    navigator.geolocation.clearWatch(gpsWatchId);
+    gpsWatchId = null;
+  }
+  
+  if (locationUpdateInterval) {
+    clearInterval(locationUpdateInterval);
+    locationUpdateInterval = null;
+  }
+}
+
+// Send location to server
+async function updateDriverLocation(lat, lng) {
+  try {
+    await fetch(`${API_URL}/api/drivers/location`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        driverId: currentDriver.id,
+        lat: lat,
+        lng: lng,
+        timestamp: new Date().toISOString()
+      })
+    });
+    
+    console.log('✅ Location sent:', lat.toFixed(6), lng.toFixed(6));
+    
+    // Update local driver object
+    currentDriver.current_lat = lat;
+    currentDriver.current_lng = lng;
+    
+  } catch (error) {
+    console.error('❌ Failed to send location:', error);
+  }
+}
+
+// Request location permissions on app load
+window.addEventListener('DOMContentLoaded', () => {
+  // Request permission immediately (iOS Safari requires user gesture)
+  document.addEventListener('click', function requestPermission() {
+    if (navigator.geolocation && !gpsWatchId) {
+      navigator.geolocation.getCurrentPosition(
+        () => console.log('✅ Location permission granted'),
+        () => console.log('⚠️ Location permission denied'),
+        { enableHighAccuracy: true }
+      );
+      document.removeEventListener('click', requestPermission);
+    }
+  }, { once: true });
+});
+</script>
+
+<!-- GPS Status Indicator - Add to HTML after stats-grid -->
+
+<div class="gps-status" id="gpsStatus" style="background: white; margin: 16px; padding: 12px; border-radius: 8px; text-align: center; font-size: 14px;">
+  <span id="gpsIndicator">📍 GPS: <span style="color: #999;">Offline</span></span>
+  <div id="gpsCoords" style="color: #666; font-size: 12px; margin-top: 4px;"></div>
+</div>
+
+<script>
+// Update GPS status indicator
+function updateGPSIndicator(lat, lng) {
+  const indicator = document.getElementById('gpsIndicator');
+  const coords = document.getElementById('gpsCoords');
+  
+  if (lat && lng) {
+    indicator.innerHTML = '📍 GPS: <span style="color: #28a745; font-weight: 600;">Active</span>';
+    coords.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  } else {
+    indicator.innerHTML = '📍 GPS: <span style="color: #999;">Offline</span>';
+    coords.textContent = '';
+  }
+}
+
+// Call this in updateDriverLocation function
+async function updateDriverLocation(lat, lng) {
+  try {
+    await fetch(`${API_URL}/api/drivers/location`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        driverId: currentDriver.id,
+        lat: lat,
+        lng: lng,
+        timestamp: new Date().toISOString()
+      })
+    });
+    
+    console.log('✅ Location sent:', lat.toFixed(6), lng.toFixed(6));
+    
+    currentDriver.current_lat = lat;
+    currentDriver.current_lng = lng;
+    
+    // UPDATE GPS INDICATOR
+    updateGPSIndicator(lat, lng);
+    
+  } catch (error) {
+    console.error('❌ Failed to send location:', error);
+  }
+}
+</script>

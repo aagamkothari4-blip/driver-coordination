@@ -224,6 +224,40 @@
           <h3 style="margin-bottom: 12px;">Live Location</h3>
           <div id="map"></div>
         </div>
+        
+        <!-- Review Section (shows when job completed) -->
+        <div id="reviewSection" class="hidden" style="margin-top: 24px; padding-top: 24px; border-top: 2px solid #e0e0e0;">
+          <h3 style="margin-bottom: 16px;">✅ Job Completed!</h3>
+          <p style="color: #666; margin-bottom: 24px;">How was your experience?</p>
+          
+          <div id="starRating" style="font-size: 40px; margin: 16px 0; cursor: pointer; text-align: center;">
+            <span onclick="setRating(1)" data-rating="1">⭐</span>
+            <span onclick="setRating(2)" data-rating="2">⭐</span>
+            <span onclick="setRating(3)" data-rating="3">⭐</span>
+            <span onclick="setRating(4)" data-rating="4">⭐</span>
+            <span onclick="setRating(5)" data-rating="5">⭐</span>
+          </div>
+          <p id="ratingText" style="text-align: center; color: #666; font-size: 14px; margin-bottom: 16px;">Tap to rate</p>
+          
+          <label style="display: block; margin-bottom: 8px; font-weight: 600;">Comments (optional):</label>
+          <textarea 
+            id="reviewComments" 
+            rows="4" 
+            placeholder="Share your experience..."
+            style="width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #e0e0e0; font-family: inherit; font-size: 14px; resize: vertical;"
+          ></textarea>
+          
+          <button 
+            onclick="submitReview()" 
+            style="width: 100%; background: #28a745; color: white; border: none; padding: 14px; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 12px;"
+          >
+            Submit Review
+          </button>
+          
+          <div id="reviewSuccess" class="hidden" style="background: #d4edda; color: #155724; padding: 12px; border-radius: 8px; margin-top: 12px; text-align: center;">
+            ✅ Thank you for your feedback!
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -367,6 +401,66 @@
           );
           map.fitBounds(bounds, { padding: [50, 50] });
         }, 100);
+      }
+      
+      // Show review section if job is completed
+      if (jobData.status === 'completed') {
+        document.getElementById('reviewSection').classList.remove('hidden');
+      }
+    }
+
+    // ===== REVIEW FUNCTIONS =====
+    let selectedRating = 0;
+
+    function setRating(rating) {
+      selectedRating = rating;
+      const stars = document.querySelectorAll('#starRating span');
+      const ratingTexts = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'];
+      
+      stars.forEach((star, index) => {
+        if (index < rating) {
+          star.style.opacity = '1';
+          star.style.transform = 'scale(1.1)';
+        } else {
+          star.style.opacity = '0.3';
+          star.style.transform = 'scale(1)';
+        }
+      });
+      
+      document.getElementById('ratingText').textContent = ratingTexts[rating];
+      document.getElementById('ratingText').style.color = '#28a745';
+      document.getElementById('ratingText').style.fontWeight = '600';
+    }
+
+    async function submitReview() {
+      if (selectedRating === 0) {
+        alert('Please select a rating');
+        return;
+      }
+      
+      try {
+        const response = await fetch(`${API_URL}/api/reviews`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            job_id: jobData.id,
+            rating: selectedRating,
+            comments: document.getElementById('reviewComments').value || ''
+          })
+        });
+        
+        if (response.ok) {
+          document.getElementById('reviewSuccess').classList.remove('hidden');
+          document.getElementById('starRating').style.display = 'none';
+          document.getElementById('ratingText').style.display = 'none';
+          document.getElementById('reviewComments').style.display = 'none';
+          document.querySelector('#reviewSection button').style.display = 'none';
+        } else {
+          alert('Failed to submit review. Please try again.');
+        }
+      } catch (error) {
+        console.error('Review submission error:', error);
+        alert('Failed to submit review. Please check your connection.');
       }
     }
 

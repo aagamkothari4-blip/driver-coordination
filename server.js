@@ -680,15 +680,193 @@ app.post('/api/calls/initiate', (req, res) => {
   });
 });
 
+// ============================================
+// DRIVER MANAGEMENT (ADMIN)
+// ============================================
+
+// Get all drivers (for manager)
+app.get('/api/admin/drivers', (req, res) => {
+  const driversWithStats = db.drivers.map(driver => {
+    const completedJobs = db.jobs.filter(j => j.assigned_driver === driver.id && j.status === 'completed').length;
+    const totalJobs = db.jobs.filter(j => j.assigned_driver === driver.id).length;
+    const reviews = db.reviews.filter(r => {
+      const job = db.jobs.find(j => j.id === r.job_id);
+      return job && job.assigned_driver === driver.id;
+    });
+    const avgRating = reviews.length > 0 ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
+    
+    return {
+      ...driver,
+      total_jobs_completed: completedJobs,
+      total_jobs: totalJobs,
+      average_rating: avgRating
+    };
+  });
+  
+  res.json(driversWithStats);
+});
+
+// Add new driver
+app.post('/api/admin/drivers', (req, res) => {
+  const { name, phone, password, initial_lat, initial_lng } = req.body;
+  
+  if (db.users.find(u => u.phone === phone)) {
+    return res.status(400).json({ error: 'Phone number already registered' });
+  }
+  
+  const userId = `driver-${Date.now()}`;
+  
+  db.users.push({
+    id: userId,
+    role: 'driver',
+    name: name,
+    phone: phone,
+    password: password
+  });
+  
+  db.drivers.push({
+    id: userId,
+    name: name,
+    phone: phone,
+    availability_status: 'offline',
+    current_lat: initial_lat || 18.5204,
+    current_lng: initial_lng || 73.8567,
+    acceptance_rate: 1.0,
+    total_jobs: 0,
+    total_jobs_completed: 0,
+    average_rating: 0,
+    today_earnings: 0
+  });
+  
+  saveDB();
+  res.json({ message: 'Driver added successfully', driver: { id: userId, name, phone } });
+});
+
+// Remove driver
+app.delete('/api/admin/drivers/:driverId', (req, res) => {
+  const { driverId } = req.params;
+  
+  db.users = db.users.filter(u => u.id !== driverId);
+  db.drivers = db.drivers.filter(d => d.id !== driverId);
+  
+  saveDB();
+  res.json({ message: 'Driver removed successfully' });
+});
+
+// Update driver
+app.patch('/api/admin/drivers/:driverId', (req, res) => {
+  const { driverId } = req.params;
+  const { name, phone } = req.body;
+  
+  const user = db.users.find(u => u.id === driverId);
+  const driver = db.drivers.find(d => d.id === driverId);
+  
+  if (user && driver) {
+    if (name) {
+      user.name = name;
+      driver.name = name;
+    }
+    if (phone) {
+      user.phone = phone;
+      driver.phone = phone;
+    }
+    saveDB();
+    res.json({ message: 'Driver updated successfully' });
+  } else {
+    res.status(404).json({ error: 'Driver not found' });
+  }
+});
+
+// ============================================
+// REVIEWS
+// ============================================
+
+// Submit review
+app.post('/api/reviews', (req, res) => {
+  const { job_id, rating, comments } = req.body;
+  
+  const review = {
+    id: `review-${Date.now()}`,
+    job_id: job_id,
+    rating: rating,
+    comments: comments || '',
+    created_at: new Date().toISOString()
+  };
+  
+  db.reviews.push(review);
+  saveDB();
+  
+  res.json({ message: 'Review submitted successfully', review });
+});
+
+// Get reviews for a job
+app.get('/api/reviews/:jobId', (req, res) => {
+  const reviews = db.reviews.filter(r => r.job_id === req.params.jobId);
+  res.json(reviews);
+});
+
+// Get all reviews (for manager)
+app.get('/api/reviews', (req, res) => {
+  res.json(db.reviews);
+});
+
+// ============================================
+// JOB HISTORY
+// ============================================
+
+// Get job history with filters
+app.get('/api/jobs/history', (req, res) => {
+  const { from, to, status, driver } = req.query;
+  
+  let jobs = db.jobs.map(job => {
+    const jobDriver = job.assigned_driver ? db.drivers.find(d => d.id === job.assigned_driver) : null;
+    const review = db.reviews.find(r => r.job_id === job.id);
+    
+    return {
+      ...job,
+      driver_name: jobDriver ? jobDriver.name : null,
+      driver_phone: jobDriver ? jobDriver.phone : null,
+      review: review || null
+    };
+  });
+  
+  if (from) {
+    jobs = jobs.filter(j => new Date(j.created_at) >= new Date(from));
+  }
+  
+  if (to) {
+    const toDate = new Date(to);
+    toDate.setHours(23, 59, 59, 999);
+    jobs = jobs.filter(j => new Date(j.created_at) <= toDate);
+  }
+  
+  if (status && status !== 'all') {
+    jobs = jobs.filter(j => j.status === status);
+  }
+  
+  if (driver && driver !== 'all') {
+    jobs = jobs.filter(j => j.assigned_driver === driver);
+  }
+  
+  jobs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  
+  res.json(jobs);
+});
+
+// ============================================
+// SERVER START
+// ============================================
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`
 ╔════════════════════════════════════════════════╗
-║  Driver Coordination POC - Server Running!     ║
+║  Driver Coordination v2.0 - Server Running!    ║
 ╚════════════════════════════════════════════════╝
 
 📱 Manager Dashboard: http://localhost:${PORT}/manager.html
 🚗 Driver App: http://localhost:${PORT}/driver.html
+👤 Customer Tracking: http://localhost:${PORT}/customer.html
 
 Demo Credentials:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -697,12 +875,13 @@ Driver:  9876543201 / driver123
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Features:
-✓ Real-time driver matching
-✓ 30-second cascade notifications
-✓ Live location tracking
-✓ WebSocket updates
-✓ Free OpenStreetMap (no API key needed)
-✓ JSON file database (no SQLite/build tools)
+✓ Real-time GPS tracking
+✓ Driver management (add/remove)
+✓ Customer reviews
+✓ Job history with filters
+✓ Mobile responsive
+✓ Free OpenStreetMap
+✓ JSON file database
 
 Database: database.json (auto-created)
 
