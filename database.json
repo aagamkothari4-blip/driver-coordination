@@ -6,42 +6,42 @@
       "name": "Demo Manager",
       "phone": "9876543210",
       "email": "manager@demo.com",
-      "password_hash": "demo123"
+      "password": "demo123"
     },
     {
       "id": "driver-001",
       "role": "driver",
       "name": "Rajesh Kumar",
       "phone": "9876543201",
-      "password_hash": "driver123"
+      "password": "driver123"
     },
     {
       "id": "driver-002",
       "role": "driver",
       "name": "Amit Sharma",
       "phone": "9876543202",
-      "password_hash": "driver123"
+      "password": "driver123"
     },
     {
       "id": "driver-003",
       "role": "driver",
       "name": "Priya Patel",
       "phone": "9876543203",
-      "password_hash": "driver123"
+      "password": "driver123"
     },
     {
       "id": "driver-004",
       "role": "driver",
       "name": "Suresh Yadav",
       "phone": "9876543204",
-      "password_hash": "driver123"
+      "password": "driver123"
     },
     {
       "id": "driver-005",
       "role": "driver",
       "name": "Neha Singh",
       "phone": "9876543205",
-      "password_hash": "driver123"
+      "password": "driver123"
     }
   ],
   "drivers": [
