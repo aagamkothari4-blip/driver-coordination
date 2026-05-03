@@ -258,16 +258,9 @@ app.post('/api/auth/login', (req, res) => {
 
 // Get all drivers (for manager)
 app.get('/api/drivers', (req, res) => {
-  const driversWithUsers = db.drivers.map(driver => {
-    const user = db.users.find(u => u.id === driver.user_id);
-    return {
-      ...driver,
-      name: user ? user.name : 'Unknown',
-      phone: user ? user.phone : 'Unknown'
-    };
-  });
-  
-  res.json(driversWithUsers);
+  // Drivers already have name and phone fields directly
+  // No need to look up from users table
+  res.json(db.drivers);
 });
 
 // Update driver location
