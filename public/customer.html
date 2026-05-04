@@ -309,6 +309,7 @@
     }
 
     function displayJobDetails() {
+      jobData.status = jobData.status || 'pending';  // ADD THIS LINE AT TOP
       document.getElementById('errorMessage').classList.add('hidden');
       document.getElementById('jobDetails').classList.remove('hidden');
       
