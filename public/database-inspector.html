@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Database Inspector</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Courier New', monospace;
+      background: #1e1e1e;
+      color: #00ff00;
+      padding: 20px;
+    }
+    
+    .container { max-width: 1200px; margin: 0 auto; }
+    h1 { color: #ffff00; margin-bottom: 20px; }
+    
+    .btn {
+      background: #667eea;
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+    
+    .section {
+      background: #2a2a2a;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      border: 1px solid #444;
+    }
+    
+    .section h2 { color: #00aaff; margin-bottom: 12px; }
+    
+    .job-card {
+      background: #1a1a1a;
+      padding: 16px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      border-left: 4px solid #00ff00;
+    }
+    
+    .job-card.error { border-left-color: #ff0000; }
+    
+    .error { color: #ff0000; }
+    .success { color: #00ff00; }
+    .warning { color: #ffaa00; }
+    .info { color: #00aaff; }
+    
+    pre {
+      background: #000;
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 12px;
+    }
+    
+    .copy-btn {
+      background: #28a745;
+      color: white;
+      padding: 4px 8px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      margin-left: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 DATABASE INSPECTOR</h1>
+    <p class="info">This tool shows ALL jobs in your database and their exact IDs</p>
+    
+    <button class="btn" onclick="inspectDatabase()">🔄 Inspect Database</button>
+    
+    <div id="output"></div>
+  </div>
+
+  <script>
+    const protocol = window.location.protocol;
+    const host = window.location.host;
+    const API_URL = `${protocol}//${host}`;
+
+    async function inspectDatabase() {
+      const output = document.getElementById('output');
+      output.innerHTML = '<p class="info">Loading...</p>';
+
+      try {
+        // Try to fetch ALL jobs
+        const response = await fetch(`${API_URL}/api/jobs`);
+        
+        if (!response.ok) {
+          output.innerHTML = `<p class="error">❌ API Error: ${response.status} ${response.statusText}</p>`;
+          return;
+        }
+
+        const jobs = await response.json();
+        
+        let html = '';
+        
+        // Summary
+        html += `<div class="section">`;
+        html += `<h2>📊 Database Summary</h2>`;
+        html += `<p class="success">✅ Total Jobs Found: ${jobs.length}</p>`;
+        html += `<p class="info">API Endpoint: ${API_URL}/api/jobs</p>`;
+        html += `</div>`;
+        
+        // Job list
+        html += `<div class="section">`;
+        html += `<h2>📋 All Jobs</h2>`;
+        
+        if (jobs.length === 0) {
+          html += `<p class="warning">⚠️ No jobs in database!</p>`;
+          html += `<p class="info">Create a job in the manager dashboard first.</p>`;
+        } else {
+          jobs.forEach((job, index) => {
+            const hasStatus = job.status ? 'success' : 'error';
+            const statusText = job.status || 'MISSING';
+            
+            html += `<div class="job-card ${job.status ? '' : 'error'}">`;
+            html += `<p><strong class="warning">Job ${index + 1}:</strong></p>`;
+            html += `<p><strong>ID:</strong> <span class="info">${job.id}</span> `;
+            html += `<button class="copy-btn" onclick="copyToClipboard('${job.id}')">Copy ID</button>`;
+            html += `<button class="copy-btn" onclick="testJob('${job.id}')">Test This Job</button>`;
+            html += `</p>`;
+            html += `<p><strong>Status:</strong> <span class="${hasStatus}">${statusText}</span></p>`;
+            html += `<p><strong>Created:</strong> ${job.created_at || 'MISSING'}</p>`;
+            html += `<p><strong>Pickup:</strong> ${job.pickup_address || 'MISSING'}</p>`;
+            html += `<p><strong>Dropoff:</strong> ${job.dropoff_address || 'MISSING'}</p>`;
+            
+            if (job.driver_name) {
+              html += `<p><strong>Driver:</strong> ${job.driver_name} (${job.driver_phone || 'N/A'})</p>`;
+            }
+            
+            // Show what customer page URLs to use
+            const jobIdShort = job.id.replace('job-', '');
+            html += `<p style="margin-top: 12px;"><strong class="info">Customer Page URLs to try:</strong></p>`;
+            html += `<p style="font-size: 11px;">1. <a href="/customer.html?job=${job.id}" style="color: #00aaff;">/customer.html?job=${job.id}</a></p>`;
+            html += `<p style="font-size: 11px;">2. <a href="/customer.html?job=${jobIdShort}" style="color: #00aaff;">/customer.html?job=${jobIdShort}</a></p>`;
+            
+            html += `</div>`;
+          });
+        }
+        
+        html += `</div>`;
+        
+        // ID Format Analysis
+        html += `<div class="section">`;
+        html += `<h2>🔧 ID Format Analysis</h2>`;
+        
+        if (jobs.length > 0) {
+          const sampleId = jobs[0].id;
+          html += `<p class="info"><strong>Sample ID:</strong> ${sampleId}</p>`;
+          
+          if (sampleId.startsWith('job-')) {
+            html += `<p class="success">✅ IDs use format: "job-XXXXXXXX"</p>`;
+            html += `<p class="warning">⚠️ Customer page must use FULL ID including "job-" prefix!</p>`;
+            html += `<p class="info">Example: customer.html?job=${sampleId}</p>`;
+          } else {
+            html += `<p class="success">✅ IDs use format: "XXXXXXXX" (no prefix)</p>`;
+            html += `<p class="info">Example: customer.html?job=${sampleId}</p>`;
+          }
+        }
+        
+        html += `</div>`;
+        
+        // API Endpoint Test
+        html += `<div class="section">`;
+        html += `<h2>🧪 API Endpoint Test</h2>`;
+        
+        if (jobs.length > 0) {
+          const testId = jobs[0].id;
+          html += `<p class="info">Testing GET /api/jobs/${testId}</p>`;
+          
+          // Test fetching individual job
+          try {
+            const testResponse = await fetch(`${API_URL}/api/jobs/${testId}`);
+            if (testResponse.ok) {
+              const testJob = await testResponse.json();
+              html += `<p class="success">✅ Individual fetch works!</p>`;
+              html += `<pre>${JSON.stringify(testJob, null, 2)}</pre>`;
+            } else {
+              html += `<p class="error">❌ Individual fetch FAILED: ${testResponse.status}</p>`;
+              html += `<p class="warning">This is the problem! The GET /api/jobs/:id endpoint is broken!</p>`;
+            }
+          } catch (error) {
+            html += `<p class="error">❌ Fetch error: ${error.message}</p>`;
+          }
+        }
+        
+        html += `</div>`;
+        
+        output.innerHTML = html;
+        
+      } catch (error) {
+        output.innerHTML = `<p class="error">❌ Fatal Error: ${error.message}</p>`;
+      }
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        alert(`Copied: ${text}`);
+      });
+    }
+
+    function testJob(jobId) {
+      window.open(`/customer-diagnostic.html?job=${jobId}`, '_blank');
+    }
+
+    // Auto-run on load
+    window.addEventListener('DOMContentLoaded', () => {
+      inspectDatabase();
+    });
+  </script>
+</body>
+</html>
