@@ -260,6 +260,27 @@
       font-size: 14px;
       line-height: 1.6;
     }
+
+    .share-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: transform 0.2s;
+}
+
+.share-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+}
+
+.share-btn:active {
+  transform: translateY(0);
+}
     
     .hidden { display: none !important; }
     
@@ -659,9 +680,14 @@
           : activeJobs.map(job => `
             <div class="job-item">
               <div class="job-header">
-                <span class="job-id">Job #${job.id.slice(0, 8)}</span>
-                <span class="job-status status-${job.status}">${job.status.replace('_', ' ')}</span>
+              <span class="job-id">Job #${job.id.slice(0, 8)}</span>
+              <span class="job-status status-${job.status}">${job.status.replace('_', ' ')}</span>
               </div>
+<div style="margin: 8px 0;">
+  <button class="share-btn" onclick="shareTrackingLink('${job.id}')">
+    🔗 Share Tracking Link
+  </button>
+</div>
               <div class="job-details">
                 <strong>From:</strong> ${job.pickup_address}<br>
                 <strong>To:</strong> ${job.dropoff_address}<br>
@@ -1022,7 +1048,21 @@
     function applyHistoryFilters() {
       loadJobHistory();
     }
-
+    function shareTrackingLink(jobId) {
+      const trackingUrl = `${window.location.origin}/customer.html?job=${jobId}`;
+      
+      // Copy to clipboard
+      navigator.clipboard.writeText(trackingUrl).then(() => {
+        // Show success notification
+        showNotification(`✅ Tracking link copied!\n\nShare this with your customer:\n${trackingUrl}`);
+        
+        // Optional: Also show alert with the link
+        alert(`📋 Tracking Link Copied!\n\nFull URL:\n${trackingUrl}\n\nJob ID: ${jobId}\n\nSend this link to your customer so they can track their delivery.`);
+      }).catch(err => {
+        // Fallback if clipboard fails
+        alert(`📋 Tracking Link:\n\n${trackingUrl}\n\nManually copy this link and send to customer.`);
+      });
+    }
     // ===== REPLACE YOUR loadJobHistory() FUNCTION WITH THIS =====
  
 async function loadJobHistory() {
