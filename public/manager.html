@@ -1023,60 +1023,141 @@
       loadJobHistory();
     }
 
-    async function loadJobHistory() {
-      const from = document.getElementById('filterFromDate').value;
-      const to = document.getElementById('filterToDate').value;
-      const status = document.getElementById('filterStatus').value;
-      const driver = document.getElementById('filterDriver').value;
-      
-      const params = new URLSearchParams();
-      if (from) params.append('from', from);
-      if (to) params.append('to', to);
-      if (status && status !== 'all') params.append('status', status);
-      if (driver && driver !== 'all') params.append('driver', driver);
-      
-      try {
-        const response = await fetch(`${API_URL}/api/jobs/history?${params}`);
-        const jobs = await response.json();
-        
-        const html = jobs.map(job => `
-          <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0;">
-            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
-              <div>
-                <strong style="font-size: 16px;">${new Date(job.created_at).toLocaleString()}</strong>
-                <p style="margin: 4px 0; color: #666; font-size: 14px;">Job #${job.id.slice(0, 8)}</p>
-              </div>
-              <span style="padding: 6px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; white-space: nowrap;
-                background: ${job.status === 'completed' ? '#d4edda' : job.status === 'cancelled' ? '#f8d7da' : job.status === 'in_progress' ? '#fff3cd' : '#e2e3e5'}; 
-                color: ${job.status === 'completed' ? '#155724' : job.status === 'cancelled' ? '#721c24' : job.status === 'in_progress' ? '#856404' : '#383d41'};">
-                ${job.status.toUpperCase()}
-              </span>
-            </div>
-            
-            <div style="margin: 12px 0; padding: 12px; background: #f8f9fa; border-radius: 6px;">
-              <p style="margin: 4px 0; font-size: 14px;"><strong>📍 Pickup:</strong> ${job.pickup_address}</p>
-              <p style="margin: 4px 0; font-size: 14px;"><strong>📍 Dropoff:</strong> ${job.dropoff_address}</p>
-              ${job.driver_name ? `<p style="margin: 8px 0 4px 0; font-size: 14px;"><strong>🚗 Driver:</strong> ${job.driver_name}</p>` : ''}
-            </div>
-            
-            ${job.review ? `
-              <div style="background: #e7f3ff; padding: 12px; border-radius: 6px; border-left: 4px solid #667eea;">
-                <strong style="color: #667eea;">⭐ Customer Review</strong>
-                <p style="margin: 8px 0 4px 0; font-size: 16px; font-weight: 600;">
-                  ${'⭐'.repeat(job.review.rating)} (${job.review.rating}/5)
-                </p>
-                ${job.review.comments ? `<p style="margin: 4px 0; font-style: italic; color: #555;">"${job.review.comments}"</p>` : ''}
-              </div>
-            ` : ''}
-          </div>
-        `).join('');
-        
-        document.getElementById('historyList').innerHTML = html || '<p style="color: #666; text-align: center; padding: 40px;">No jobs found for selected filters</p>';
-      } catch (error) {
-        console.error('Failed to load history:', error);
-        document.getElementById('historyList').innerHTML = '<p style="color: #dc3545; text-align: center;">Failed to load job history</p>';
-      }
+    // ===== REPLACE YOUR loadJobHistory() FUNCTION WITH THIS =====
+ 
+async function loadJobHistory() {
+  console.log('🔍 Loading job history...');
+  
+  try {
+    // Try to fetch all jobs first
+    const response = await fetch(`${API_URL}/api/jobs`);
+    
+    console.log('📡 Response status:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
+    
+    const jobs = await response.json();
+    console.log('📊 Jobs received:', jobs.length, jobs);
+    
+    // Get filter values
+    const from = document.getElementById('filterFromDate').value;
+    const to = document.getElementById('filterToDate').value;
+    const status = document.getElementById('filterStatus').value;
+    const driver = document.getElementById('filterDriver').value;
+    
+    // Filter jobs
+    let filteredJobs = jobs;
+    
+    if (from) {
+      filteredJobs = filteredJobs.filter(j => {
+        if (!j.created_at) return false;
+        return new Date(j.created_at) >= new Date(from);
+      });
+    }
+    
+    if (to) {
+      const toDate = new Date(to);
+      toDate.setHours(23, 59, 59, 999);
+      filteredJobs = filteredJobs.filter(j => {
+        if (!j.created_at) return false;
+        return new Date(j.created_at) <= toDate;
+      });
+    }
+    
+    if (status && status !== 'all') {
+      filteredJobs = filteredJobs.filter(j => j.status === status);
+    }
+    
+    if (driver && driver !== 'all') {
+      filteredJobs = filteredJobs.filter(j => j.assigned_driver === driver);
+    }
+    
+    console.log('📋 Filtered jobs:', filteredJobs.length);
+    
+    // Sort by date (newest first)
+    filteredJobs.sort((a, b) => {
+      const dateA = a.created_at ? new Date(a.created_at) : new Date(0);
+      const dateB = b.created_at ? new Date(b.created_at) : new Date(0);
+      return dateB - dateA;
+    });
+    
+    // Display jobs
+    if (filteredJobs.length === 0) {
+      document.getElementById('historyList').innerHTML = 
+        '<p style="text-align: center; color: #999; padding: 40px 0;">No jobs found for selected filters</p>';
+      return;
+    }
+    
+    const html = filteredJobs.map(job => {
+      const createdDate = job.created_at ? new Date(job.created_at).toLocaleString() : 'Unknown date';
+      const statusClass = job.status || 'pending';
+      const statusLabel = job.status || 'unknown';
+      
+      return `
+        <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0; margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+            <div>
+              <strong style="font-size: 16px;">${createdDate}</strong>
+              <p style="margin: 4px 0; color: #666; font-size: 14px;">Job #${(job.id || 'unknown').slice(0, 8)}</p>
+            </div>
+            <span class="job-status status-${statusClass}">${statusLabel.toUpperCase()}</span>
+          </div>
+          
+          <div style="margin: 12px 0; padding: 12px; background: #f8f9fa; border-radius: 6px;">
+            <p style="margin: 4px 0; font-size: 14px;"><strong>📍 Pickup:</strong> ${job.pickup_address || 'N/A'}</p>
+            <p style="margin: 4px 0; font-size: 14px;"><strong>📍 Dropoff:</strong> ${job.dropoff_address || 'N/A'}</p>
+            ${job.driver_name ? `<p style="margin: 8px 0 4px 0; font-size: 14px;"><strong>🚗 Driver:</strong> ${job.driver_name}</p>` : ''}
+            ${job.car_details ? `<p style="margin: 4px 0; font-size: 14px;"><strong>🚙 Car:</strong> ${job.car_details}</p>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+    
+    document.getElementById('historyList').innerHTML = html;
+    
+  } catch (error) {
+    console.error('❌ Error loading job history:', error);
+    document.getElementById('historyList').innerHTML = `
+      <div style="background: #f8d7da; color: #721c24; padding: 20px; border-radius: 8px; text-align: center;">
+        <h3 style="margin-bottom: 8px;">Failed to load job history</h3>
+        <p style="margin: 8px 0; font-size: 14px;"><strong>Error:</strong> ${error.message}</p>
+        <p style="margin: 8px 0; font-size: 12px; color: #666;">Check browser console (F12) for details</p>
+        <button onclick="loadJobHistory()" class="btn btn-primary" style="margin-top: 12px;">
+          🔄 Retry
+        </button>
+      </div>
+    `;
+  }
+}
+
+async function loadHistoryFilters() {
+  // Set default dates (last 7 days)
+  const today = new Date();
+  const weekAgo = new Date(today);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  
+  document.getElementById('filterToDate').valueAsDate = today;
+  document.getElementById('filterFromDate').valueAsDate = weekAgo;
+  
+  // Load drivers for filter dropdown
+  try {
+    const response = await fetch(`${API_URL}/api/drivers`);
+    if (response.ok) {
+      const drivers = await response.json();
+      
+      const options = drivers.map(d => 
+        `<option value="${d.id}">${d.name}</option>`
+      ).join('');
+      
+      document.getElementById('filterDriver').innerHTML = 
+        '<option value="all">All Drivers</option>' + options;
+    }
+  } catch (error) {
+    console.error('Failed to load driver filter:', error);
+  }
+}
   </script>
 </body>
 </html>
