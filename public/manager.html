@@ -670,9 +670,14 @@
                 <strong>Distance:</strong> ${job.estimated_distance ? job.estimated_distance.toFixed(2) : 'N/A'} km
               </div>
               <div class="job-actions">
-                ${['pending', 'assigned'].includes(job.status) ? `
+                ${!['completed', 'cancelled', 'in_progress'].includes(job.status) ? `
                   <button class="btn btn-danger btn-sm" onclick="cancelJob('${job.id}')">
-                    ${job.status === 'assigned' ? '🔄 Cancel & Reassign' : '❌ Cancel Job'}
+                    ❌ Cancel Job
+                  </button>
+                ` : ''}
+                ${job.status === 'unassigned' || job.status === 'pending' ? `
+                  <button class="btn btn-primary btn-sm" onclick="retryJob('${job.id}')" style="background: #ffc107; color: #333;">
+                    🔄 Retry Notification
                   </button>
                 ` : ''}
                 ${job.driver_name ? `
@@ -801,6 +806,27 @@
         }
       } catch (error) {
         alert('Failed to cancel job: ' + error.message);
+      }
+    }
+
+    async function retryJob(jobId) {
+      if (!confirm('Retry sending notifications to drivers for this job?')) return;
+      
+      try {
+        // Call backend to restart cascade notification
+        const response = await fetch(`${API_URL}/api/jobs/${jobId}/retry`, {
+          method: 'POST'
+        });
+        
+        if (response.ok) {
+          showNotification('🔄 Retrying... Notifying drivers again');
+          loadJobs();
+        } else {
+          const error = await response.json();
+          alert('Failed to retry: ' + (error.error || 'Unknown error'));
+        }
+      } catch (error) {
+        alert('Failed to retry job: ' + error.message);
       }
     }
 
