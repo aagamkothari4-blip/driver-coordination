@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track Your Delivery - DIAGNOSTIC MODE</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container { max-width: 800px; margin: 0 auto; }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+    }
+    
+    .diagnostic-box {
+      background: #1e1e1e;
+      color: #00ff00;
+      padding: 16px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      max-height: 400px;
+      overflow-y: auto;
+      margin: 16px 0;
+    }
+    
+    .diagnostic-box h3 {
+      color: #ffff00;
+      margin-bottom: 12px;
+    }
+    
+    .error { color: #ff0000; }
+    .success { color: #00ff00; }
+    .warning { color: #ffaa00; }
+    .info { color: #00aaff; }
+    
+    .btn {
+      width: 100%;
+      padding: 16px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    
+    input {
+      width: 100%;
+      padding: 16px;
+      font-size: 18px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1 style="text-align: center; color: #333; margin-bottom: 24px;">
+        🔍 DIAGNOSTIC MODE - Customer Tracking
+      </h1>
+      
+      <input type="text" id="jobIdInput" placeholder="Enter Job ID (e.g., d848348d)" value="d848348d">
+      <button class="btn" onclick="diagnoseJob()">🔍 Diagnose Job</button>
+      
+      <div class="diagnostic-box" id="diagnosticOutput">
+        <h3>📊 Diagnostic Console</h3>
+        <p class="info">Enter job ID and click "Diagnose Job" to see real-time API data...</p>
+      </div>
+      
+      <div class="diagnostic-box" id="rawResponse" style="display: none;">
+        <h3>📡 Raw API Response</h3>
+        <pre id="rawJSON"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const protocol = window.location.protocol;
+    const host = window.location.host;
+    const API_URL = `${protocol}//${host}`;
+    
+    let diagInterval = null;
+
+    function log(message, type = 'info') {
+      const output = document.getElementById('diagnosticOutput');
+      const timestamp = new Date().toLocaleTimeString();
+      const colorClass = type;
+      output.innerHTML += `<div class="${colorClass}">[${timestamp}] ${message}</div>`;
+      output.scrollTop = output.scrollHeight;
+    }
+
+    async function diagnoseJob() {
+      const jobId = document.getElementById('jobIdInput').value.trim();
+      
+      if (!jobId) {
+        log('❌ ERROR: No job ID provided', 'error');
+        return;
+      }
+
+      // Clear previous output
+      document.getElementById('diagnosticOutput').innerHTML = '<h3>📊 Diagnostic Console</h3>';
+      document.getElementById('rawResponse').style.display = 'none';
+      
+      log(`🔍 Starting diagnostic for job: ${jobId}`, 'info');
+      log(`🌐 API URL: ${API_URL}`, 'info');
+      
+      try {
+        log(`📡 Fetching: ${API_URL}/api/jobs/${jobId}`, 'info');
+        
+        const response = await fetch(`${API_URL}/api/jobs/${jobId}`);
+        
+        log(`📊 Response Status: ${response.status} ${response.statusText}`, 
+            response.ok ? 'success' : 'error');
+        
+        if (!response.ok) {
+          log(`❌ API ERROR: ${response.status} - ${response.statusText}`, 'error');
+          if (response.status === 404) {
+            log(`⚠️ Job not found in database!`, 'warning');
+          }
+          return;
+        }
+
+        const data = await response.json();
+        
+        // Show raw response
+        document.getElementById('rawResponse').style.display = 'block';
+        document.getElementById('rawJSON').textContent = JSON.stringify(data, null, 2);
+        
+        log(`✅ Data received successfully`, 'success');
+        log(``, 'info');
+        
+        // Diagnose each field
+        log(`=== CRITICAL FIELDS ===`, 'warning');
+        
+        // Status check
+        if (data.status) {
+          log(`✅ status: "${data.status}"`, data.status === 'in_progress' ? 'success' : 'warning');
+        } else {
+          log(`❌ status: MISSING OR UNDEFINED`, 'error');
+        }
+        
+        // Driver check
+        if (data.driver_name && data.driver_phone) {
+          log(`✅ driver_name: "${data.driver_name}"`, 'success');
+          log(`✅ driver_phone: "${data.driver_phone}"`, 'success');
+        } else {
+          log(`⚠️ driver_name: ${data.driver_name || 'NOT SET'}`, 'warning');
+          log(`⚠️ driver_phone: ${data.driver_phone || 'NOT SET'}`, 'warning');
+        }
+        
+        // Timestamps
+        log(``, 'info');
+        log(`=== TIMESTAMPS ===`, 'warning');
+        log(`created_at: ${data.created_at || 'NOT SET'}`, data.created_at ? 'success' : 'error');
+        log(`assigned_at: ${data.assigned_at || 'NOT SET'}`, data.assigned_at ? 'success' : 'warning');
+        log(`started_at: ${data.started_at || 'NOT SET'}`, data.started_at ? 'success' : 'warning');
+        log(`completed_at: ${data.completed_at || 'NOT SET'}`, data.completed_at ? 'success' : 'warning');
+        
+        // Locations
+        log(``, 'info');
+        log(`=== LOCATIONS ===`, 'warning');
+        log(`pickup: ${data.pickup_address || 'NOT SET'}`, 'info');
+        log(`dropoff: ${data.dropoff_address || 'NOT SET'}`, 'info');
+        
+        // Driver location
+        if (data.driver_lat && data.driver_lng) {
+          log(`✅ Driver location: ${data.driver_lat}, ${data.driver_lng}`, 'success');
+        } else {
+          log(`⚠️ Driver location: NOT AVAILABLE`, 'warning');
+        }
+        
+        log(``, 'info');
+        log(`=== DIAGNOSIS RESULT ===`, 'warning');
+        
+        // Final diagnosis
+        if (!data.status) {
+          log(`❌ PROBLEM: Job has NO status field!`, 'error');
+          log(`💡 FIX: Update server.js to ensure jobs have status field`, 'info');
+        } else if (data.status === 'pending' && data.driver_name) {
+          log(`❌ PROBLEM: Status is "pending" but driver is assigned!`, 'error');
+          log(`💡 FIX: Status should be "assigned" or "in_progress"`, 'info');
+        } else if (data.status === 'in_progress' && !data.started_at) {
+          log(`⚠️ WARNING: Status is "in_progress" but no started_at timestamp`, 'warning');
+          log(`💡 FIX: Set started_at when driver marks "Picked Up"`, 'info');
+        } else if (data.status === 'assigned' && !data.assigned_at) {
+          log(`⚠️ WARNING: Status is "assigned" but no assigned_at timestamp`, 'warning');
+          log(`💡 FIX: Set assigned_at when driver accepts job`, 'info');
+        } else {
+          log(`✅ Status field looks correct: "${data.status}"`, 'success');
+        }
+        
+        log(``, 'info');
+        log(`📋 See "Raw API Response" section below for full data`, 'info');
+        
+        // Start auto-refresh
+        if (diagInterval) clearInterval(diagInterval);
+        diagInterval = setInterval(() => {
+          log(`🔄 Auto-refreshing...`, 'info');
+          diagnoseJobSilent();
+        }, 5000);
+        
+      } catch (error) {
+        log(`❌ FATAL ERROR: ${error.message}`, 'error');
+        log(`Stack: ${error.stack}`, 'error');
+      }
+    }
+
+    async function diagnoseJobSilent() {
+      const jobId = document.getElementById('jobIdInput').value.trim();
+      try {
+        const response = await fetch(`${API_URL}/api/jobs/${jobId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.status) {
+            log(`🔄 Current status: "${data.status}"`, 'info');
+          }
+        }
+      } catch (error) {
+        log(`⚠️ Refresh failed: ${error.message}`, 'warning');
+      }
+    }
+
+    // Auto-load from URL
+    window.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const jobId = urlParams.get('job');
+      if (jobId) {
+        document.getElementById('jobIdInput').value = jobId;
+        diagnoseJob();
+      }
+    });
+  </script>
+</body>
+</html>
