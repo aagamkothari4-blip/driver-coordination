@@ -472,6 +472,43 @@
     let activeJob = null;
     let jobStatus = 'none';
 
+    // Request browser notification permission on load
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+
+    // Play an alert tone for incoming jobs using Web Audio API (works without a file)
+    function playJobAlertSound() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [0, 0.3, 0.6].forEach(delay => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.value = 880;
+          gain.gain.setValueAtTime(0.6, ctx.currentTime + delay);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.25);
+          osc.start(ctx.currentTime + delay);
+          osc.stop(ctx.currentTime + delay + 0.25);
+        });
+      } catch (e) {
+        console.warn('Audio not available:', e);
+      }
+    }
+
+    // Show a browser notification if the app is in the background
+    function showBrowserNotification(job) {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('🚗 New Job Available!', {
+          body: `Pickup: ${job.pickup_address}\nEarnings: ₹${job.estimated_earnings || Math.round((job.estimated_distance || 0) * 50)}`,
+          icon: '/favicon.ico',
+          requireInteraction: true
+        });
+      }
+    }
+
     // CRITICAL: Auto-detect protocol for production
     const protocol = window.location.protocol;
     const host = window.location.host;
@@ -624,6 +661,10 @@
 
     function showJobNotification(job, timeout) {
       currentNotification = job;
+
+      // Alert the driver with sound and a browser notification (works when minimized)
+      playJobAlertSound();
+      showBrowserNotification(job);
       
       const html = `
         <p><strong>Pickup:</strong> ${job.pickup_address}</p>

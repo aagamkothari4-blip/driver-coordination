@@ -627,13 +627,30 @@
           showNotification('⚠️ Driver cancelled: ' + data.reason);
           loadJobs();
         } else if (data.type === 'DRIVER_LOCATION_UPDATE') {
-          // Look up driver info from cache
           const driverInfo = driversCache[data.driverId];
           if (driverInfo) {
             updateDriverMarker(data.driverId, data.lat, data.lng, driverInfo.name, driverInfo.status);
           } else {
-            // Fallback if not in cache
             updateDriverMarker(data.driverId, data.lat, data.lng, 'Unknown', 'unknown');
+          }
+        } else if (data.type === 'DRIVER_STATUS_UPDATE') {
+          // Update local cache
+          if (driversCache[data.driverId]) {
+            driversCache[data.driverId].status = data.status;
+          } else {
+            driversCache[data.driverId] = { name: data.name, status: data.status };
+          }
+          if (data.status === 'offline') {
+            // Remove marker from map immediately — driver went offline
+            if (driverMarkers[data.driverId]) {
+              map.removeLayer(driverMarkers[data.driverId]);
+              delete driverMarkers[data.driverId];
+            }
+          } else {
+            // Driver came online or became busy — add/update marker instantly
+            if (data.lat && data.lng) {
+              updateDriverMarker(data.driverId, data.lat, data.lng, data.name, data.status);
+            }
           }
         }
       };

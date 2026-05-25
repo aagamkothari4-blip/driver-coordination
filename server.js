@@ -298,6 +298,22 @@ app.post('/api/drivers/availability', (req, res) => {
   if (driver) {
     driver.availability_status = status;
     saveDB();
+
+    // Broadcast status change to all connected managers in real-time
+    const driverUser = db.users.find(u => u.id === driver.user_id);
+    connections.forEach((ws, userId) => {
+      const user = db.users.find(u => u.id === userId);
+      if (user && user.role === 'manager') {
+        sendToUser(userId, {
+          type: 'DRIVER_STATUS_UPDATE',
+          driverId,
+          status,
+          lat: driver.current_lat,
+          lng: driver.current_lng,
+          name: driverUser ? driverUser.name : 'Unknown'
+        });
+      }
+    });
   }
   
   res.json({ success: true });
