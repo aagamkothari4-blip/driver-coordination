@@ -744,13 +744,15 @@
         const drivers = await response.json();
         
         drivers.forEach(driver => {
-          // Cache driver info for WebSocket updates
+          // Cache all drivers for WebSocket updates
           driversCache[driver.id] = {
             name: driver.name,
             status: driver.availability_status
           };
-          
-          if (driver.current_lat && driver.current_lng) {
+
+          // Only plot online/busy drivers on the map — offline drivers have no marker
+          // When they come online, DRIVER_STATUS_UPDATE will add their marker live
+          if (driver.availability_status !== 'offline' && driver.current_lat && driver.current_lng) {
             updateDriverMarker(driver.id, driver.current_lat, driver.current_lng, driver.name, driver.availability_status);
           }
         });
@@ -759,27 +761,31 @@
       }
     }
 
+    function makeDriverIcon(status) {
+      const colour = status === 'online' ? '#28a745' : status === 'busy' ? '#fd7e14' : '#6c757d';
+      return L.divIcon({
+        html: `<div style="background: ${colour}; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🚗</div>`,
+        className: '',
+        iconSize: [32, 32]
+      });
+    }
+
     function updateDriverMarker(driverId, lat, lng, name, status) {
       if (driverMarkers[driverId]) {
+        // Update position AND icon colour to reflect current status
         driverMarkers[driverId].setLatLng([lat, lng]);
+        driverMarkers[driverId].setIcon(makeDriverIcon(status));
+        driverMarkers[driverId].setPopupContent(`<b>${name}</b><br>Status: ${status}`);
       } else {
-        const icon = L.divIcon({
-          html: `<div style="background: ${status === 'online' ? '#28a745' : '#6c757d'}; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🚗</div>`,
-          className: '',
-          iconSize: [32, 32]
-        });
-        
-        const marker = L.marker([lat, lng], { icon }).addTo(map);
+        const marker = L.marker([lat, lng], { icon: makeDriverIcon(status) }).addTo(map);
         if (name) {
-          // Permanent tooltip (always visible)
           marker.bindTooltip(name, {
             permanent: true,
             direction: 'right',
             offset: [10, 0],
             className: 'driver-label'
           });
-          // Popup on click (with more details)
-          marker.bindPopup(`<b>${name}</b><br>Status: ${status}<br>Phone: ${driverId}`);
+          marker.bindPopup(`<b>${name}</b><br>Status: ${status}`);
         }
         driverMarkers[driverId] = marker;
       }
