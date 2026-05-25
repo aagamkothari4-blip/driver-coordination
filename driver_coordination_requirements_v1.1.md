@@ -76,7 +76,11 @@ Enable efficient coordination of freelance drivers for car transportation betwee
   - Name, phone, availability status
   - Current job (if any)
   - Performance metrics (jobs completed, average rating)
-- **Real-time Status Updates**: When a driver changes their status (online → busy → offline), this change must be reflected on the manager dashboard immediately via a WebSocket push event — no manual refresh required
+- **Real-time Status Updates**: When a driver changes their availability status (offline → online, online → busy, busy → offline, etc.), the manager dashboard must reflect this immediately without a page reload. Specifically:
+  - When a driver comes **online**, their marker must appear on the map instantly
+  - When a driver goes **offline**, their marker must be removed from the map instantly
+  - When a driver becomes **busy** (job accepted), their marker style/colour must update instantly
+  - This is distinct from location movement — the driver's location dot may already be updating via the `driver:location` WebSocket event, but the **online/offline status indicator** on the map must also be driven by a separate `driver:status` WebSocket event that the frontend actively listens to and uses to add, remove, or restyle map markers in real-time
   
 #### 2.1.4 Analytics Dashboard
 - **Metrics**:
@@ -406,8 +410,8 @@ Enable efficient coordination of freelance drivers for car transportation betwee
 - GET /api/analytics/earnings - Earnings summary
 
 ### 6.6 WebSocket Events
-- `driver:location` - Driver location update (broadcasted to manager dashboard in real-time)
-- `driver:status` - Driver availability status change (online/offline/busy) broadcasted to manager dashboard in real-time, no page reload needed
+- `driver:location` - Driver location update (broadcasted to manager dashboard in real-time; moves the marker on the map)
+- `driver:status` - Driver availability status change (online / offline / busy); the manager dashboard frontend must listen to this event and immediately add, remove, or restyle the driver's map marker without a page reload — **note: location updates alone are not sufficient; a driver going online must trigger a new marker appearing on the map via this event**
 - `job:created` - New job notification to drivers
 - `job:assigned` - Job assigned confirmation
 - `job:status` - Job status change
