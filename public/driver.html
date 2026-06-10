@@ -935,8 +935,78 @@
     // ===== GPS TRACKING FUNCTIONS =====
     let gpsWatchId = null;
     let locationUpdateInterval = null;
+    let wakeLock = null;
+    let lastLocationSent = 0;
+    let isGPSTracking = false;
 
-    function startGPSTracking() {
+    // ---- Wake Lock: prevents browser from throttling when tab is in background ----
+    async function requestWakeLock() {
+      if ('wakeLock' in navigator) {
+        try {
+          wakeLock = await navigator.wakeLock.request('screen');
+          console.log('🔒 Wake lock acquired');
+          wakeLock.addEventListener('release', () => {
+            console.log('🔓 Wake lock released — will re-acquire on next visibility');
+          });
+        } catch (err) {
+          console.warn('Wake lock not available:', err.message);
+        }
+      }
+    }
+
+    async function releaseWakeLock() {
+      if (wakeLock) {
+        await wakeLock.release();
+        wakeLock = null;
+      }
+    }
+
+    // ---- Visibility recovery: restarts GPS when tab comes back into focus ----
+    document.addEventListener('visibilitychange', async () => {
+      if (document.visibilityState === 'visible') {
+        console.log('👁️ Tab visible again — checking GPS state');
+        // Re-acquire wake lock if it was released
+        if (isGPSTracking && !wakeLock) {
+          await requestWakeLock();
+        }
+        // Restart the interval if it got killed by browser throttling
+        if (isGPSTracking && !locationUpdateInterval) {
+          console.log('♻️ Restarting location interval after background');
+          startLocationInterval();
+        }
+        // Force an immediate location update on return
+        if (isGPSTracking) {
+          navigator.geolocation.getCurrentPosition(
+            position => updateDriverLocation(position.coords.latitude, position.coords.longitude),
+            null,
+            { enableHighAccuracy: true, maximumAge: 10000 }
+          );
+        }
+      } else {
+        console.log('👻 Tab hidden — GPS will continue via watchPosition');
+      }
+    });
+
+    function startLocationInterval() {
+      // Clear any stale interval first
+      if (locationUpdateInterval) {
+        clearInterval(locationUpdateInterval);
+        locationUpdateInterval = null;
+      }
+      locationUpdateInterval = setInterval(() => {
+        const now = Date.now();
+        // Only send if it has been at least 8 seconds since last send (avoid spam)
+        if (now - lastLocationSent > 8000) {
+          navigator.geolocation.getCurrentPosition(
+            position => updateDriverLocation(position.coords.latitude, position.coords.longitude),
+            err => console.warn('Interval GPS error:', err.message),
+            { enableHighAccuracy: true, maximumAge: 8000 }
+          );
+        }
+      }, 10000); // Every 10 seconds
+    }
+
+    async function startGPSTracking() {
       console.log('🛰️ Starting GPS tracking...');
       
       if (!navigator.geolocation) {
@@ -944,6 +1014,11 @@
         updateGPSIndicator(null, null, 'Not Supported');
         return;
       }
+
+      isGPSTracking = true;
+
+      // Request wake lock to keep the browser active
+      await requestWakeLock();
       
       // Request permission and get initial position
       navigator.geolocation.getCurrentPosition(
@@ -959,13 +1034,13 @@
           updateGPSIndicator(null, null, 'Permission Denied');
         },
         { 
-          enableHighAccuracy: true,  // Use GPS chip, not WiFi
+          enableHighAccuracy: true,
           timeout: 10000,
           maximumAge: 0
         }
       );
       
-      // Watch position continuously (updates when driver moves)
+      // Watch position continuously (fires on movement, most reliable method)
       gpsWatchId = navigator.geolocation.watchPosition(
         position => {
           console.log('📍 GPS update:', position.coords.latitude.toFixed(6), position.coords.longitude.toFixed(6));
@@ -973,6 +1048,7 @@
         },
         error => {
           console.error('GPS watch error:', error);
+          // If watchPosition fails, the interval below is our fallback
         },
         { 
           enableHighAccuracy: true,
@@ -981,22 +1057,15 @@
         }
       );
       
-      // Also send updates every 10 seconds (even if not moving)
-      locationUpdateInterval = setInterval(() => {
-        navigator.geolocation.getCurrentPosition(
-          position => {
-            updateDriverLocation(position.coords.latitude, position.coords.longitude);
-          },
-          null,
-          { enableHighAccuracy: true, maximumAge: 5000 }
-        );
-      }, 10000); // Every 10 seconds
+      // Interval as a safety net — catches cases where watchPosition stalls
+      startLocationInterval();
       
-      console.log('✅ GPS tracking started');
+      console.log('✅ GPS tracking started (watchPosition + interval + wake lock)');
     }
 
     function stopGPSTracking() {
       console.log('⏹️ Stopping GPS tracking');
+      isGPSTracking = false;
       
       if (gpsWatchId) {
         navigator.geolocation.clearWatch(gpsWatchId);
@@ -1007,12 +1076,15 @@
         clearInterval(locationUpdateInterval);
         locationUpdateInterval = null;
       }
+
+      releaseWakeLock();
       
       updateGPSIndicator(null, null, 'Offline');
     }
 
     async function updateDriverLocation(lat, lng) {
       try {
+        lastLocationSent = Date.now();
         await fetch(`${API_URL}/api/drivers/location`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1035,6 +1107,7 @@
         
       } catch (error) {
         console.error('❌ Failed to send location:', error);
+        updateGPSIndicator(null, null, 'Error');
       }
     }
 

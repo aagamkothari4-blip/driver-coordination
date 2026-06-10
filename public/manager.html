@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Manager Dashboard - Driver Coordination</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Google Maps API: replace YOUR_API_KEY with your actual key from https://console.cloud.google.com -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=marker" async defer></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
@@ -537,7 +538,7 @@
     </div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <script>
     let currentUser = null;
     let ws = null;
@@ -643,7 +644,7 @@
           if (data.status === 'offline') {
             // Remove marker from map immediately — driver went offline
             if (driverMarkers[data.driverId]) {
-              map.removeLayer(driverMarkers[data.driverId]);
+              driverMarkers[data.driverId].setMap(null);
               delete driverMarkers[data.driverId];
             }
           } else {
@@ -655,11 +656,14 @@
         }
       };
 
-      // Initialize map
-      map = L.map('map').setView([18.5204, 73.8567], 13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
+      // Initialize Google Map (centered on Pune)
+      map = new google.maps.Map(document.getElementById('map'), {
+        center: { lat: 18.5204, lng: 73.8567 },
+        zoom: 13,
+        mapTypeControl: true,
+        streetViewControl: false,
+        fullscreenControl: true,
+      });
 
       loadStats();
       loadJobs();
@@ -763,30 +767,40 @@
 
     function makeDriverIcon(status) {
       const colour = status === 'online' ? '#28a745' : status === 'busy' ? '#fd7e14' : '#6c757d';
-      return L.divIcon({
-        html: `<div style="background: ${colour}; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🚗</div>`,
-        className: '',
-        iconSize: [32, 32]
-      });
+      // Returns a data URI SVG circle with car emoji — used as Google Maps icon URL
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36'>
+        <circle cx='18' cy='18' r='16' fill='${colour}' stroke='white' stroke-width='2'/>
+        <text x='18' y='24' text-anchor='middle' font-size='16'>🚗</text>
+      </svg>`;
+      return {
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+        scaledSize: new google.maps.Size(36, 36),
+        anchor: new google.maps.Point(18, 18),
+      };
     }
 
     function updateDriverMarker(driverId, lat, lng, name, status) {
+      const position = { lat: parseFloat(lat), lng: parseFloat(lng) };
       if (driverMarkers[driverId]) {
-        // Update position AND icon colour to reflect current status
-        driverMarkers[driverId].setLatLng([lat, lng]);
+        // Update existing marker
+        driverMarkers[driverId].setPosition(position);
         driverMarkers[driverId].setIcon(makeDriverIcon(status));
-        driverMarkers[driverId].setPopupContent(`<b>${name}</b><br>Status: ${status}`);
-      } else {
-        const marker = L.marker([lat, lng], { icon: makeDriverIcon(status) }).addTo(map);
-        if (name) {
-          marker.bindTooltip(name, {
-            permanent: true,
-            direction: 'right',
-            offset: [10, 0],
-            className: 'driver-label'
-          });
-          marker.bindPopup(`<b>${name}</b><br>Status: ${status}`);
+        if (driverMarkers[driverId].infoWindow) {
+          driverMarkers[driverId].infoWindow.setContent(`<b>${name}</b><br>Status: ${status}`);
         }
+      } else {
+        const marker = new google.maps.Marker({
+          position,
+          map,
+          icon: makeDriverIcon(status),
+          title: name || 'Driver',
+          label: { text: ' ', color: 'white' }
+        });
+        const infoWindow = new google.maps.InfoWindow({
+          content: `<b>${name}</b><br>Status: ${status}`
+        });
+        marker.infoWindow = infoWindow;
+        marker.addListener('click', () => infoWindow.open(map, marker));
         driverMarkers[driverId] = marker;
       }
     }
