@@ -1,37 +1,26 @@
 // Service Worker — keeps driver app alive in background
-const CACHE_NAME = 'driver-app-v1';
+const CACHE_NAME = 'driver-app-v2';
 
 self.addEventListener('install', e => {
+  console.log('[SW] Installing');
   self.skipWaiting();
 });
 
 self.addEventListener('activate', e => {
+  console.log('[SW] Activated');
   e.waitUntil(clients.claim());
 });
 
-// Handle push messages (for future FCM integration)
-self.addEventListener('push', e => {
-  const data = e.data ? e.data.json() : {};
-  e.waitUntil(
-    self.registration.showNotification('New Job Request 🚗', {
-      body: data.body || 'A new job is available',
-      icon: '/favicon.ico',
-      badge: '/favicon.ico',
-      tag: 'job-notification',
-      requireInteraction: true, // stays on screen until dismissed
-      data: data
-    })
-  );
-});
-
-// When driver taps the notification, open/focus the app
+// When driver taps the native notification, open/focus the app
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   e.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
       for (const client of clientList) {
         if (client.url.includes('driver.html') && 'focus' in client) {
-          return client.focus();
+          client.focus();
+          client.postMessage({ type: 'NOTIFICATION_CLICKED' });
+          return;
         }
       }
       return clients.openWindow('/driver.html');
@@ -39,33 +28,77 @@ self.addEventListener('notificationclick', e => {
   );
 });
 
-// Background sync — poll for notifications every 20s using the SW alarm
-// This works even when the tab is completely backgrounded on mobile
+// Background job polling
 let pollTimer = null;
+let pollConfig = null;
 
 self.addEventListener('message', e => {
-  if (e.data && e.data.type === 'START_POLL') {
-    const { apiUrl, driverId } = e.data;
-    if (pollTimer) clearInterval(pollTimer);
-    pollTimer = setInterval(async () => {
-      try {
-        const res = await fetch(`${apiUrl}/api/driver/pending-notification?driverId=${driverId}`);
-        const data = await res.json();
-        if (data.notification && data.notification.time_remaining > 0) {
-          // Send message to all open tabs
-          const allClients = await clients.matchAll({ includeUncontrolled: true });
-          allClients.forEach(c => c.postMessage({ type: 'JOB_NOTIFICATION', job: data.notification }));
-          // Also show a native notification in case tabs are all hidden
-          self.registration.showNotification('New Job Request 🚗', {
-            body: `Pickup: ${data.notification.pickup_address}`,
-            tag: 'job-' + data.notification.id,
-            requireInteraction: true,
-          });
-        }
-      } catch(e) {}
-    }, 20000);
+  if (!e.data) return;
+
+  if (e.data.type === 'START_POLL') {
+    pollConfig = { apiUrl: e.data.apiUrl, driverId: e.data.driverId };
+    startPolling();
+    console.log('[SW] Started background polling for driver', e.data.driverId);
   }
-  if (e.data && e.data.type === 'STOP_POLL') {
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+
+  if (e.data.type === 'STOP_POLL') {
+    stopPolling();
+    console.log('[SW] Stopped background polling');
+  }
+
+  // Tab tells SW a notification is already being shown — don't double-notify
+  if (e.data.type === 'NOTIFICATION_SHOWN') {
+    self.registration.getNotifications({ tag: 'job-' + e.data.jobId })
+      .then(notes => notes.forEach(n => n.close()));
   }
 });
+
+function startPolling() {
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(doPoll, 15000); // every 15 seconds
+  doPoll(); // immediate first poll
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+async function doPoll() {
+  if (!pollConfig) return;
+  try {
+    const res = await fetch(`${pollConfig.apiUrl}/api/driver/pending-notification?driverId=${pollConfig.driverId}`);
+    const data = await res.json();
+
+    if (!data.notification) return;
+
+    const job = data.notification;
+
+    // Check if any tab is visible and showing the notification already
+    const allClients = await clients.matchAll({ includeUncontrolled: true, type: 'window' });
+    
+    // Send to all open tabs so they can show in-app notification
+    allClients.forEach(c => c.postMessage({ type: 'JOB_NOTIFICATION', job }));
+
+    // Check if all tabs are hidden — if so show native OS notification
+    const allHidden = allClients.every(c => c.visibilityState === 'hidden' || !c.visibilityState);
+    if (allHidden || allClients.length === 0) {
+      // Check if we already showed this notification
+      const existing = await self.registration.getNotifications({ tag: 'job-' + job.id });
+      if (existing.length === 0) {
+        await self.registration.showNotification('🚗 New Job Available!', {
+          body: `From: ${job.pickup_address}\nEarnings: ₹${job.estimated_earnings || '—'}`,
+          icon: '/favicon.ico',
+          badge: '/favicon.ico',
+          tag: 'job-' + job.id,
+          requireInteraction: true,
+          vibrate: [300, 100, 300, 100, 300],
+          silent: false,
+          data: { jobId: job.id }
+        });
+        console.log('[SW] Showed native notification for job', job.id);
+      }
+    }
+  } catch(e) {
+    console.warn('[SW] Poll failed:', e.message);
+  }
+}

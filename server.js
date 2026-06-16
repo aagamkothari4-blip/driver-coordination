@@ -235,15 +235,16 @@ function startCascade(jobId) {
 
     console.log(`Notified driver ${current.driver_id} for job ${jobId} (position ${currentIndex + 1}/${queue.length})`);
 
-    // Set 30-second timeout
+    // Set 30-second timeout — move to next driver but keep job available
     const timer = setTimeout(() => {
       const queueItem = db.job_queue.find(q => q.id === current.id);
       
       if (queueItem && queueItem.status === 'pending') {
-        // Auto-decline if no response
+        // Mark as timed-out for cascade purposes but job stays 'pending'
+        // so driver can still accept via polling if no one else took it
         queueItem.status = 'timeout';
         saveDB();
-        console.log(`Driver ${current.driver_id} timed out for job ${jobId}`);
+        console.log(`Driver ${current.driver_id} timed out for job ${jobId} — moving to next`);
         
         currentIndex++;
         notifyNextDriver();
@@ -322,44 +323,48 @@ app.post('/api/drivers/location', (req, res) => {
   res.json({ success: true });
 });
 
-// Get pending job notifications for a driver (for polling when backgrounded)
+// Get pending job notifications for a driver (polling fallback)
+// Returns job if: still in 30s window (active), OR timed out but job still unassigned (missed)
 app.get('/api/driver/pending-notification', (req, res) => {
   const { driverId } = req.query;
   if (!driverId) return res.status(400).json({ error: 'driverId required' });
 
-  // Find active queue items for this driver that haven't timed out yet
   const now = Date.now();
-  const pending = db.job_queue.find(q => {
-    if (q.driver_id !== driverId) return false;
-    if (q.status !== 'pending') return false;
-    if (!q.notified_at) return false;
-    // Still within the 30-second window (+ 5s grace for latency)
-    const elapsed = now - new Date(q.notified_at).getTime();
-    return elapsed < 35000;
-  });
 
-  if (!pending) return res.json({ notification: null });
+  // Look for ANY queue entry for this driver where the job is still available
+  const queueItems = db.job_queue
+    .filter(q => q.driver_id === driverId && q.notified_at)
+    .sort((a, b) => new Date(b.notified_at) - new Date(a.notified_at)); // most recent first
 
-  const job = db.jobs.find(j => j.id === pending.job_id);
-  if (!job || job.status !== 'pending') return res.json({ notification: null });
+  for (const item of queueItems) {
+    const job = db.jobs.find(j => j.id === item.job_id);
+    // Job must still be pending/unassigned and not completed/cancelled
+    if (!job || !['pending', 'unassigned'].includes(job.status)) continue;
+    // Job must not already be assigned to someone else
+    if (job.assigned_driver && job.assigned_driver !== driverId) continue;
 
-  const timeRemaining = Math.max(0, 30000 - (now - new Date(pending.notified_at).getTime()));
+    const elapsed = now - new Date(item.notified_at).getTime();
+    const timeRemaining = Math.max(0, 30000 - elapsed);
 
-  res.json({
-    notification: {
-      id: job.id,
-      pickup_address: job.pickup_address,
-      dropoff_address: job.dropoff_address,
-      pickup_lat: job.pickup_lat,
-      pickup_lng: job.pickup_lng,
-      dropoff_lat: job.dropoff_lat,
-      dropoff_lng: job.dropoff_lng,
-      car_details: job.car_details,
-      estimated_distance: job.estimated_distance,
-      estimated_earnings: Math.round((job.estimated_distance || 0) * 50),
-      time_remaining: timeRemaining
-    }
-  });
+    return res.json({
+      notification: {
+        id: job.id,
+        pickup_address: job.pickup_address,
+        dropoff_address: job.dropoff_address,
+        pickup_lat: job.pickup_lat,
+        pickup_lng: job.pickup_lng,
+        dropoff_lat: job.dropoff_lat,
+        dropoff_lng: job.dropoff_lng,
+        car_details: job.car_details,
+        estimated_distance: job.estimated_distance,
+        estimated_earnings: Math.round((job.estimated_distance || 0) * 50),
+        time_remaining: timeRemaining,
+        is_missed: elapsed >= 30000 // flag so UI can show "missed" state
+      }
+    });
+  }
+
+  res.json({ notification: null });
 });
 
 // Get jobs for a specific driver (history)
