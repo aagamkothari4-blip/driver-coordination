@@ -155,10 +155,12 @@ function findNearestDrivers(pickupLat, pickupLng) {
   const onlineDrivers = db.drivers
     .filter(d => d.availability_status === 'online')
     .map(driver => {
-      const user = db.users.find(u => u.id === driver.user_id);
+      // user_id may differ from driver.id for legacy sample drivers
+      const user = db.users.find(u => u.id === driver.user_id || u.id === driver.id);
       return {
         ...driver,
-        name: user ? user.name : 'Unknown',
+        name: user ? user.name : (driver.name || 'Unknown'),
+        user_id: driver.user_id || driver.id, // ensure user_id always set
         distance: calculateDistance(pickupLat, pickupLng, driver.current_lat, driver.current_lng)
       };
     });
@@ -207,8 +209,13 @@ function startCascade(jobId) {
     const job = db.jobs.find(j => j.id === jobId);
     if (!job) return;
     
-    // Send notification to driver
-    sendToUser(current.driver_id, {
+    // Send notification — use stored user_id or fall back to driver lookup
+    const notifyUserId = current.user_id || (() => {
+      const dr = db.drivers.find(d => d.id === current.driver_id);
+      return (dr && dr.user_id) ? dr.user_id : current.driver_id;
+    })();
+    console.log(`📤 Notifying user ${notifyUserId} (driver ${current.driver_id}), connected: ${connections.has(notifyUserId)}`);
+    sendToUser(notifyUserId, {
       type: 'JOB_NOTIFICATION',
       job: {
         id: job.id,
@@ -262,7 +269,8 @@ app.post('/api/auth/login', (req, res) => {
 
   let additionalData = {};
   if (user.role === 'driver') {
-    additionalData = db.drivers.find(d => d.user_id === user.id) || {};
+    // Match by user_id OR by id (for legacy drivers where driver.id === user.id)
+    additionalData = db.drivers.find(d => d.user_id === user.id || d.id === user.id) || {};
   }
 
   res.json({
@@ -459,6 +467,7 @@ app.post('/api/jobs', (req, res) => {
       id: uuidv4(),
       job_id: jobId,
       driver_id: driver.id,
+      user_id: driver.user_id || driver.id, // store resolved user_id for notification routing
       position: index,
       notified_at: null,
       status: 'pending'

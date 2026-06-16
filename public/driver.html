@@ -622,7 +622,9 @@
 
     async function initDriverApp() {
       // Initialize WebSocket
-      ws = new WebSocket(`${WS_URL}?userId=${currentDriver.id}`);
+      // Use currentUser.id (auth id) so server can route notifications correctly
+      const wsUserId = currentUser ? currentUser.id : currentDriver.id;
+      ws = new WebSocket(`${WS_URL}?userId=${wsUserId}`);
       
       ws.onopen = () => {
         console.log('✅ WebSocket connected');
