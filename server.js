@@ -201,8 +201,9 @@ function startCascade(jobId) {
 
     const current = queue[currentIndex];
     
-    // Mark as notified
+    // Mark as notified with precise timestamp for time_remaining calculation
     current.notified_at = new Date().toISOString();
+    current.status = 'pending';
     saveDB();
 
     // Get job details
@@ -319,6 +320,46 @@ app.post('/api/drivers/location', (req, res) => {
   });
   
   res.json({ success: true });
+});
+
+// Get pending job notifications for a driver (for polling when backgrounded)
+app.get('/api/driver/pending-notification', (req, res) => {
+  const { driverId } = req.query;
+  if (!driverId) return res.status(400).json({ error: 'driverId required' });
+
+  // Find active queue items for this driver that haven't timed out yet
+  const now = Date.now();
+  const pending = db.job_queue.find(q => {
+    if (q.driver_id !== driverId) return false;
+    if (q.status !== 'pending') return false;
+    if (!q.notified_at) return false;
+    // Still within the 30-second window (+ 5s grace for latency)
+    const elapsed = now - new Date(q.notified_at).getTime();
+    return elapsed < 35000;
+  });
+
+  if (!pending) return res.json({ notification: null });
+
+  const job = db.jobs.find(j => j.id === pending.job_id);
+  if (!job || job.status !== 'pending') return res.json({ notification: null });
+
+  const timeRemaining = Math.max(0, 30000 - (now - new Date(pending.notified_at).getTime()));
+
+  res.json({
+    notification: {
+      id: job.id,
+      pickup_address: job.pickup_address,
+      dropoff_address: job.dropoff_address,
+      pickup_lat: job.pickup_lat,
+      pickup_lng: job.pickup_lng,
+      dropoff_lat: job.dropoff_lat,
+      dropoff_lng: job.dropoff_lng,
+      car_details: job.car_details,
+      estimated_distance: job.estimated_distance,
+      estimated_earnings: Math.round((job.estimated_distance || 0) * 50),
+      time_remaining: timeRemaining
+    }
+  });
 });
 
 // Get jobs for a specific driver (history)

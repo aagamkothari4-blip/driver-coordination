@@ -510,6 +510,22 @@
       } catch(e) { console.warn('Could not load Google Maps:', e); }
     }
     loadGoogleMaps();
+
+    // Register Service Worker for true background operation
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        console.log('✅ Service Worker registered');
+      }).catch(e => console.warn('SW registration failed:', e));
+
+      // Listen for messages from Service Worker (background job notifications)
+      navigator.serviceWorker.addEventListener('message', e => {
+        if (e.data && e.data.type === 'JOB_NOTIFICATION') {
+          if (!currentNotification && !activeJob) {
+            showJobNotification(e.data.job, e.data.job.time_remaining || 30000);
+          }
+        }
+      });
+    }
     let countdownInterval = null;
     let activeJob = null;
     let jobStatus = 'none';
@@ -659,6 +675,14 @@
 
       // Refresh job history every 30 seconds
       setInterval(loadJobHistory, 30000);
+
+      // Poll for missed notifications every 15 seconds as WebSocket backup
+      // This catches notifications that arrived while the tab was backgrounded
+      setInterval(() => {
+        if (!currentNotification && !activeJob && currentDriver) {
+          checkForMissedNotification();
+        }
+      }, 15000);
     }
 
     async function loadJobHistory() {
@@ -764,47 +788,67 @@
         // GPS TRACKING - Start when online, stop when offline
         if (isOnline) {
           startGPSTracking();
+          // Start SW background polling for notifications
+          if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({
+              type: 'START_POLL',
+              apiUrl: API_URL,
+              driverId: currentDriver.id
+            });
+          }
         } else {
           stopGPSTracking();
+          if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'STOP_POLL' });
+          }
         }
       } catch (error) {
         console.error('Failed to update status:', error);
       }
     }
 
-    function showJobNotification(job, timeout) {
-      currentNotification = job;
+    let notificationDeadline = null; // absolute timestamp when notification expires
 
-      // Alert the driver with sound and a browser notification (works when minimized)
+    function showJobNotification(job, timeout) {
+      // Ignore if already showing this job
+      if (currentNotification && currentNotification.id === job.id) return;
+
+      currentNotification = job;
+      notificationDeadline = Date.now() + (timeout || 30000);
+
       playJobAlertSound();
       showBrowserNotification(job);
-      
+
       const html = `
         <p><strong>Pickup:</strong> ${job.pickup_address}</p>
         <p><strong>Dropoff:</strong> ${job.dropoff_address}</p>
         <p><strong>Distance:</strong> ${job.estimated_distance ? job.estimated_distance.toFixed(1) : 'N/A'} km</p>
-        <p><strong>Earnings:</strong> ₹${job.estimated_earnings || Math.round(job.estimated_distance * 50)}</p>
+        <p><strong>Earnings:</strong> ₹${job.estimated_earnings || Math.round((job.estimated_distance || 0) * 50)}</p>
       `;
-      
+
       document.getElementById('jobInfo').innerHTML = html;
       document.getElementById('jobNotification').classList.remove('hidden');
-      
-      let timeLeft = timeout / 1000;
-      document.getElementById('countdown').textContent = timeLeft;
-      
+
+      startCountdown();
+    }
+
+    function startCountdown() {
+      clearInterval(countdownInterval);
       countdownInterval = setInterval(() => {
-        timeLeft--;
-        document.getElementById('countdown').textContent = timeLeft;
-        
-        if (timeLeft <= 0) {
+        if (!notificationDeadline) { clearInterval(countdownInterval); return; }
+        const remaining = Math.max(0, Math.ceil((notificationDeadline - Date.now()) / 1000));
+        const el = document.getElementById('countdown');
+        if (el) el.textContent = remaining;
+        if (remaining <= 0) {
           clearInterval(countdownInterval);
           declineJob();
         }
-      }, 1000);
+      }, 500); // 500ms ticks so it stays accurate even after throttling resumes
     }
 
     async function acceptJob() {
       clearInterval(countdownInterval);
+      notificationDeadline = null;
       document.getElementById('jobNotification').classList.add('hidden');
       
       try {
@@ -842,6 +886,7 @@
 
     function declineJob() {
       clearInterval(countdownInterval);
+      notificationDeadline = null;
       document.getElementById('jobNotification').classList.add('hidden');
       currentNotification = null;
     }
@@ -1119,20 +1164,23 @@
       }
     }
 
-    // ---- Visibility recovery: restarts GPS when tab comes back into focus ----
+    // ---- Visibility recovery: restarts GPS + checks for missed notifications ----
     document.addEventListener('visibilitychange', async () => {
       if (document.visibilityState === 'visible') {
-        console.log('👁️ Tab visible again — checking GPS state');
-        // Re-acquire wake lock if it was released
+        console.log('👁️ Tab visible again');
+
+        // 1. Re-acquire wake lock if released
         if (isGPSTracking && !wakeLock) {
           await requestWakeLock();
         }
-        // Restart the interval if it got killed by browser throttling
+
+        // 2. Restart location interval if throttled away
         if (isGPSTracking && !locationUpdateInterval) {
           console.log('♻️ Restarting location interval after background');
           startLocationInterval();
         }
-        // Force an immediate location update on return
+
+        // 3. Force immediate GPS update
         if (isGPSTracking) {
           navigator.geolocation.getCurrentPosition(
             position => updateDriverLocation(position.coords.latitude, position.coords.longitude),
@@ -1140,10 +1188,49 @@
             { enableHighAccuracy: true, maximumAge: 10000 }
           );
         }
+
+        // 4. Reconnect WebSocket if it dropped while backgrounded
+        if (ws && ws.readyState !== WebSocket.OPEN && currentDriver) {
+          console.log('♻️ Reconnecting WebSocket after background');
+          initDriverApp();
+        }
+
+        // 5. If countdown was running, restart it with correct remaining time
+        if (currentNotification && notificationDeadline) {
+          const remaining = notificationDeadline - Date.now();
+          if (remaining > 0) {
+            console.log(`▶️ Resuming countdown with ${Math.ceil(remaining/1000)}s left`);
+            startCountdown();
+          } else {
+            // Notification expired while backgrounded — dismiss
+            declineJob();
+          }
+        }
+
+        // 6. Poll server for any notifications we missed while backgrounded
+        if (currentDriver && !currentNotification && !activeJob) {
+          checkForMissedNotification();
+        }
+
       } else {
-        console.log('👻 Tab hidden — GPS will continue via watchPosition');
+        console.log('👻 Tab hidden — GPS continues via watchPosition');
       }
     });
+
+    // Poll server for pending notification (catches what WebSocket missed in background)
+    async function checkForMissedNotification() {
+      if (!currentDriver) return;
+      try {
+        const res = await fetch(`${API_URL}/api/driver/pending-notification?driverId=${currentDriver.id}`);
+        const data = await res.json();
+        if (data.notification && data.notification.time_remaining > 0) {
+          console.log('📬 Found missed notification, showing it');
+          showJobNotification(data.notification, data.notification.time_remaining);
+        }
+      } catch(e) {
+        console.warn('Could not check for missed notification:', e);
+      }
+    }
 
     function startLocationInterval() {
       // Clear any stale interval first
