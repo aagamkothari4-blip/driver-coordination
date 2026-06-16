@@ -553,13 +553,19 @@
     let driversCache = {}; // Store driver info for quick lookup
 
     // Called by Google Maps script once it finishes loading
+    let googleMapsReadyBeforeLogin = false;
+
     function onGoogleMapsLoaded() {
       useGoogleMaps = true;
-      HtmlMarker = createHtmlMarkerClass(); // safe to create now
+      HtmlMarker = createHtmlMarkerClass();
       console.log('✅ Google Maps API loaded');
       if (currentUser) {
+        // Dashboard already open — init immediately
         initMap();
         initAutocomplete();
+      } else {
+        // Dashboard not open yet — flag so initDashboard picks it up
+        googleMapsReadyBeforeLogin = true;
       }
     }
 
@@ -584,13 +590,19 @@
     }
     loadGoogleMaps();
 
+    let autocompleteInitialised = false;
+
     function initAutocomplete() {
-      if (!useGoogleMaps || typeof google === 'undefined') return;
+      if (autocompleteInitialised) return; // don't double-init
+      if (!useGoogleMaps || typeof google === 'undefined' || !google.maps.places) return;
       const pickupEl = document.getElementById('pickupAddress');
       const dropoffEl = document.getElementById('dropoffAddress');
       if (!pickupEl || !dropoffEl) return;
 
-      const opts = { componentRestrictions: { country: 'in' }, fields: ['formatted_address','geometry'] };
+      const opts = {
+        componentRestrictions: { country: 'in' },
+        fields: ['formatted_address', 'geometry']
+      };
 
       const pickupAC = new google.maps.places.Autocomplete(pickupEl, opts);
       pickupAC.addListener('place_changed', () => {
@@ -598,6 +610,7 @@
         if (place.geometry) {
           pickupEl.dataset.lat = place.geometry.location.lat();
           pickupEl.dataset.lng = place.geometry.location.lng();
+          console.log('📍 Pickup coords:', pickupEl.dataset.lat, pickupEl.dataset.lng);
         }
       });
 
@@ -607,8 +620,12 @@
         if (place.geometry) {
           dropoffEl.dataset.lat = place.geometry.location.lat();
           dropoffEl.dataset.lng = place.geometry.location.lng();
+          console.log('📍 Dropoff coords:', dropoffEl.dataset.lat, dropoffEl.dataset.lng);
         }
       });
+
+      autocompleteInitialised = true;
+      console.log('✅ Address autocomplete initialised');
     }
 
     // CRITICAL: Auto-detect protocol for both localhost AND production
@@ -780,7 +797,11 @@
       connectWebSocket();
 
       initMap();
-      initAutocomplete();
+      // If Google Maps loaded before login, autocomplete is ready now
+      // If it loads after, onGoogleMapsLoaded will call initAutocomplete
+      if (useGoogleMaps) {
+        initAutocomplete();
+      }
 
       loadStats();
       loadJobs();
