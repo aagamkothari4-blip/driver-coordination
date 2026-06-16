@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Manager Dashboard - Driver Coordination</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBnnO0zHZcUHCiSpuAqrTpZaT1F5oqRqXI&libraries=marker" async defer onload="onGoogleMapsLoaded()"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
@@ -546,8 +547,18 @@
     let currentUser = null;
     let ws = null;
     let map = null;
+    let googleMap = null;       // Google Maps instance (used when available)
+    let useGoogleMaps = false;  // toggled true once Google Maps API loads
     let driverMarkers = {};
     let driversCache = {}; // Store driver info for quick lookup
+
+    // Called by Google Maps script once it finishes loading
+    function onGoogleMapsLoaded() {
+      useGoogleMaps = true;
+      console.log('✅ Google Maps API loaded');
+      // If the dashboard is already open, re-init the map with Google Maps
+      if (currentUser) initMap();
+    }
 
     // CRITICAL: Auto-detect protocol for both localhost AND production
     const protocol = window.location.protocol; // http: or https:
@@ -696,7 +707,8 @@
             if (data.status === 'offline') {
               // Remove marker from map immediately
               if (driverMarkers[data.driverId]) {
-                map.removeLayer(driverMarkers[data.driverId]);
+                const m = driverMarkers[data.driverId];
+                if (useGoogleMaps) { m.setMap(null); } else { map.removeLayer(m); }
                 delete driverMarkers[data.driverId];
               }
             } else {
@@ -715,11 +727,7 @@
 
       connectWebSocket();
 
-      // Initialize map
-      map = L.map('map').setView([18.5204, 73.8567], 13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }).addTo(map);
+      initMap();
 
       loadStats();
       loadJobs();
@@ -728,8 +736,46 @@
       setInterval(() => {
         loadStats();
         loadJobs();
-        loadDrivers(); // Keep sidebar driver list fresh every 10s as a fallback
+        loadDrivers();
       }, 10000);
+    }
+
+    function initMap() {
+      const mapEl = document.getElementById('map');
+      if (!mapEl) return;
+
+      // Clear any existing markers when re-initialising
+      driverMarkers = {};
+
+      if (useGoogleMaps && typeof google !== 'undefined') {
+        // --- Google Maps ---
+        googleMap = new google.maps.Map(mapEl, {
+          center: { lat: 18.5204, lng: 73.8567 },
+          zoom: 13,
+          mapTypeControl: true,
+          streetViewControl: false,
+          fullscreenControl: true,
+        });
+        map = googleMap; // keep `map` pointing at the active instance
+        console.log('🗺️ Using Google Maps');
+      } else {
+        // --- Leaflet fallback ---
+        if (map) {
+          try { map.remove(); } catch(e) {}
+        }
+        map = L.map(mapEl).setView([18.5204, 73.8567], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        console.log('🗺️ Using Leaflet/OpenStreetMap (Google Maps not yet loaded)');
+      }
+
+      // Re-plot any drivers that were already cached
+      Object.entries(driversCache).forEach(([id, info]) => {
+        if (info.lat && info.lng && info.status !== 'offline') {
+          updateDriverMarker(id, info.lat, info.lng, info.name, info.status);
+        }
+      });
     }
 
     async function loadStats() {
@@ -822,7 +868,7 @@
       }
     }
 
-    function makeDriverIcon(status) {
+    function makeLeafletIcon(status) {
       const colour = status === 'online' ? '#28a745' : status === 'busy' ? '#fd7e14' : '#6c757d';
       return L.divIcon({
         html: `<div style="background: ${colour}; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🚗</div>`,
@@ -831,24 +877,64 @@
       });
     }
 
+    function makeGoogleIcon(status) {
+      const colour = status === 'online' ? '%2328a745' : status === 'busy' ? '%23fd7e14' : '%236c757d';
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='38' height='38'><circle cx='19' cy='19' r='17' fill='${colour}' stroke='white' stroke-width='2.5'/><text x='19' y='25' text-anchor='middle' font-size='17'>🚗</text></svg>`;
+      return {
+        url: 'data:image/svg+xml;charset=UTF-8,' + svg,
+        scaledSize: new google.maps.Size(38, 38),
+        anchor: new google.maps.Point(19, 19),
+      };
+    }
+
     function updateDriverMarker(driverId, lat, lng, name, status) {
-      if (driverMarkers[driverId]) {
-        // Update position AND icon colour to reflect current status
-        driverMarkers[driverId].setLatLng([lat, lng]);
-        driverMarkers[driverId].setIcon(makeDriverIcon(status));
-        driverMarkers[driverId].setPopupContent(`<b>${name}</b><br>Status: ${status}`);
-      } else {
-        const marker = L.marker([lat, lng], { icon: makeDriverIcon(status) }).addTo(map);
-        if (name) {
-          marker.bindTooltip(name, {
-            permanent: true,
-            direction: 'right',
-            offset: [10, 0],
-            className: 'driver-label'
+      lat = parseFloat(lat);
+      lng = parseFloat(lng);
+      if (isNaN(lat) || isNaN(lng)) return;
+
+      if (useGoogleMaps && googleMap) {
+        // --- Google Maps ---
+        if (driverMarkers[driverId]) {
+          driverMarkers[driverId].setPosition({ lat, lng });
+          driverMarkers[driverId].setIcon(makeGoogleIcon(status));
+          if (driverMarkers[driverId]._infoWindow) {
+            driverMarkers[driverId]._infoWindow.setContent(
+              `<b>${name}</b><br>Status: ${status}`
+            );
+          }
+        } else {
+          const marker = new google.maps.Marker({
+            position: { lat, lng },
+            map: googleMap,
+            icon: makeGoogleIcon(status),
+            title: name || 'Driver',
           });
-          marker.bindPopup(`<b>${name}</b><br>Status: ${status}`);
+          const infoWindow = new google.maps.InfoWindow({
+            content: `<b>${name}</b><br>Status: ${status}`
+          });
+          marker._infoWindow = infoWindow;
+          marker.addListener('click', () => infoWindow.open(googleMap, marker));
+          driverMarkers[driverId] = marker;
         }
-        driverMarkers[driverId] = marker;
+      } else {
+        // --- Leaflet ---
+        if (driverMarkers[driverId]) {
+          driverMarkers[driverId].setLatLng([lat, lng]);
+          driverMarkers[driverId].setIcon(makeLeafletIcon(status));
+          driverMarkers[driverId].setPopupContent(`<b>${name}</b><br>Status: ${status}`);
+        } else {
+          const marker = L.marker([lat, lng], { icon: makeLeafletIcon(status) }).addTo(map);
+          if (name) {
+            marker.bindTooltip(name, {
+              permanent: true,
+              direction: 'right',
+              offset: [10, 0],
+              className: 'driver-label'
+            });
+            marker.bindPopup(`<b>${name}</b><br>Status: ${status}`);
+          }
+          driverMarkers[driverId] = marker;
+        }
       }
     }
 
