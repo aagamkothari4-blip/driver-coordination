@@ -385,7 +385,7 @@
       try {
         const res = await fetch('/api/config');
         const cfg = await res.json();
-        if (!cfg.googleMapsKey) return;
+        if (!cfg.googleMapsKey || cfg.googleMapsKey.trim() === '' || cfg.googleMapsKey === 'undefined') return;
         const s = document.createElement('script');
         s.src = `https://maps.googleapis.com/maps/api/js?key=${cfg.googleMapsKey}&libraries=places&callback=onGoogleMapsLoaded`;
         s.async = true; s.defer = true;

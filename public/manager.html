@@ -568,8 +568,9 @@
       try {
         const res = await fetch('/api/config');
         const cfg = await res.json();
-        if (!cfg.googleMapsKey) {
+        if (!cfg.googleMapsKey || cfg.googleMapsKey.trim() === '' || cfg.googleMapsKey === 'undefined') {
           console.warn('No Google Maps key configured — using Leaflet');
+          initMap(); // explicitly init Leaflet now
           return;
         }
         const script = document.createElement('script');

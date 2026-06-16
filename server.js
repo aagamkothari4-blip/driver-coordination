@@ -728,8 +728,9 @@ app.post('/api/calls/initiate', (req, res) => {
 // CONFIG — serve non-secret config to frontend
 // ============================================
 app.get('/api/config', (req, res) => {
+  const key = process.env.GOOGLE_MAPS_API_KEY;
   res.json({
-    googleMapsKey: process.env.GOOGLE_MAPS_API_KEY || ''
+    googleMapsKey: (key && key.trim()) ? key.trim() : null
   });
 });
 
