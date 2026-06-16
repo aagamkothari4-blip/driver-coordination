@@ -364,12 +364,35 @@
     console.log('🌐 API URL:', API_URL);
     
     let map = null;
+    let googleMap = null;
+    let useGoogleMaps = false;
+    let directionsRenderer = null;
     let jobData = null;
     let refreshInterval = null;
     let selectedRating = 0;
     let driverMarker = null;
     let pickupMarker = null;
     let dropoffMarker = null;
+
+    function onGoogleMapsLoaded() {
+      useGoogleMaps = true;
+      directionsRenderer = new google.maps.DirectionsRenderer({ suppressMarkers: false });
+      console.log('✅ Google Maps loaded on customer page');
+      if (jobData) renderCustomerMap();
+    }
+
+    async function loadGoogleMaps() {
+      try {
+        const res = await fetch('/api/config');
+        const cfg = await res.json();
+        if (!cfg.googleMapsKey) return;
+        const s = document.createElement('script');
+        s.src = `https://maps.googleapis.com/maps/api/js?key=${cfg.googleMapsKey}&libraries=places&callback=onGoogleMapsLoaded`;
+        s.async = true; s.defer = true;
+        document.head.appendChild(s);
+      } catch(e) { console.warn('Could not load Google Maps:', e); }
+    }
+    loadGoogleMaps();
 
     async function trackJob() {
       const jobId = document.getElementById('jobIdInput').value.trim();
@@ -536,65 +559,111 @@
         document.getElementById('driverInfo').classList.add('hidden');
       }
       
-      // Map
-      if (!map) {
-        map = L.map('map').setView([18.5204, 73.8567], 12);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap'
-        }).addTo(map);
-      }
-      
-      // Clear old markers
-      if (pickupMarker) map.removeLayer(pickupMarker);
-      if (dropoffMarker) map.removeLayer(dropoffMarker);
-      if (driverMarker) map.removeLayer(driverMarker);
-      
-      // Add pickup marker
-      if (jobData.pickup_lat && jobData.pickup_lng) {
-        pickupMarker = L.marker([jobData.pickup_lat, jobData.pickup_lng])
-          .addTo(map)
-          .bindPopup('📍 Pickup: ' + (jobData.pickup_address || 'Start Location'));
-      }
-      
-      // Add dropoff marker
-      if (jobData.dropoff_lat && jobData.dropoff_lng) {
-        dropoffMarker = L.marker([jobData.dropoff_lat, jobData.dropoff_lng])
-          .addTo(map)
-          .bindPopup('🏁 Dropoff: ' + (jobData.dropoff_address || 'End Location'));
-      }
-      
-      // Add driver marker (if assigned and has location)
-      if (jobData.driver_lat && jobData.driver_lng && jobData.status !== 'completed') {
-        const driverIcon = L.divIcon({
-          html: `<div style="background: #28a745; color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">🚗</div>`,
-          className: '',
-          iconSize: [36, 36]
-        });
-        
-        driverMarker = L.marker([jobData.driver_lat, jobData.driver_lng], { icon: driverIcon })
-          .addTo(map)
-          .bindPopup(`🚗 Driver: ${jobData.driver_name || 'On the way'}`);
-        
-        // Center map on driver if in progress
-        if (jobData.status === 'in_progress') {
-          map.setView([jobData.driver_lat, jobData.driver_lng], 14);
-        }
-      }
-      
-      // Fit map to show all markers
-      if (pickupMarker && dropoffMarker) {
-        const bounds = L.latLngBounds([
-          pickupMarker.getLatLng(),
-          dropoffMarker.getLatLng()
-        ]);
-        if (driverMarker) bounds.extend(driverMarker.getLatLng());
-        map.fitBounds(bounds, { padding: [50, 50] });
-      }
+      renderCustomerMap();
       
       // Show review section if completed
       if (jobData.status === 'completed') {
         document.getElementById('reviewSection').classList.remove('hidden');
         setupStarRating();
+      }
+    }
+
+    function renderCustomerMap() {
+      if (!jobData) return;
+      const mapEl = document.getElementById('map');
+      const hasDriver = jobData.driver_lat && jobData.driver_lng && jobData.status !== 'completed';
+      const driverPhotoUrl = jobData.driver_photo_url || null;
+      const driverName = jobData.driver_name || 'Driver';
+      const initials = driverName.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+
+      if (useGoogleMaps && typeof google !== 'undefined') {
+        // --- Google Maps with Directions ---
+        if (!googleMap) {
+          googleMap = new google.maps.Map(mapEl, {
+            center: { lat: jobData.pickup_lat || 18.5204, lng: jobData.pickup_lng || 73.8567 },
+            zoom: 13,
+            streetViewControl: false,
+          });
+          map = googleMap;
+          directionsRenderer.setMap(googleMap);
+        }
+
+        // Build waypoints: driver → pickup → dropoff (or just pickup → dropoff if no driver)
+        if (hasDriver) {
+          const directionsService = new google.maps.DirectionsService();
+          // Full route: driver → pickup → dropoff
+          directionsService.route({
+            origin: new google.maps.LatLng(jobData.driver_lat, jobData.driver_lng),
+            destination: new google.maps.LatLng(jobData.dropoff_lat, jobData.dropoff_lng),
+            waypoints: [{ location: new google.maps.LatLng(jobData.pickup_lat, jobData.pickup_lng), stopover: true }],
+            travelMode: google.maps.TravelMode.DRIVING,
+          }, (result, status) => {
+            if (status === 'OK') {
+              directionsRenderer.setDirections(result);
+              // ETA is sum of both legs
+              const legs = result.routes[0].legs;
+              const totalMins = legs.reduce((s, l) => s + l.duration.value, 0);
+              const etaEl = document.getElementById('etaBadge');
+              if (etaEl) etaEl.textContent = `ETA: ~${Math.ceil(totalMins/60)} min`;
+            }
+          });
+
+          // Driver photo marker
+          const driverHtml = driverPhotoUrl
+            ? `<div style="width:40px;height:40px;border-radius:50%;border:3px solid #28a745;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.3);"><img src="${driverPhotoUrl}" style="width:100%;height:100%;object-fit:cover;"></div>`
+            : `<div style="width:40px;height:40px;border-radius:50%;background:#28a745;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);">${initials}</div>`;
+
+          if (driverMarker) driverMarker.setMap(null);
+          driverMarker = new google.maps.Marker({
+            position: { lat: jobData.driver_lat, lng: jobData.driver_lng },
+            map: googleMap,
+            icon: {
+              url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><circle cx='20' cy='20' r='18' fill='%2328a745' stroke='white' stroke-width='2'/><text x='20' y='26' text-anchor='middle' font-size='16' fill='white'>${initials}</text></svg>`),
+              scaledSize: new google.maps.Size(40, 40),
+              anchor: new google.maps.Point(20, 20),
+            },
+            title: driverName,
+          });
+        } else {
+          // Just show pickup → dropoff
+          const directionsService = new google.maps.DirectionsService();
+          directionsService.route({
+            origin: new google.maps.LatLng(jobData.pickup_lat, jobData.pickup_lng),
+            destination: new google.maps.LatLng(jobData.dropoff_lat, jobData.dropoff_lng),
+            travelMode: google.maps.TravelMode.DRIVING,
+          }, (result, status) => {
+            if (status === 'OK') directionsRenderer.setDirections(result);
+          });
+        }
+
+      } else {
+        // --- Leaflet fallback ---
+        if (!map) {
+          map = L.map(mapEl).setView([18.5204, 73.8567], 12);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+        }
+        if (pickupMarker) map.removeLayer(pickupMarker);
+        if (dropoffMarker) map.removeLayer(dropoffMarker);
+        if (driverMarker) map.removeLayer(driverMarker);
+
+        if (jobData.pickup_lat) pickupMarker = L.marker([jobData.pickup_lat, jobData.pickup_lng]).addTo(map).bindPopup('📍 Pickup: ' + (jobData.pickup_address || ''));
+        if (jobData.dropoff_lat) dropoffMarker = L.marker([jobData.dropoff_lat, jobData.dropoff_lng]).addTo(map).bindPopup('🏁 Dropoff: ' + (jobData.dropoff_address || ''));
+
+        if (hasDriver) {
+          const icon = L.divIcon({
+            html: driverPhotoUrl
+              ? `<div style="width:36px;height:36px;border-radius:50%;border:3px solid #28a745;overflow:hidden;"><img src="${driverPhotoUrl}" style="width:100%;height:100%;object-fit:cover;"></div>`
+              : `<div style="width:36px;height:36px;border-radius:50%;background:#28a745;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:13px;border:3px solid white;">${initials}</div>`,
+            className: '', iconSize: [36, 36], iconAnchor: [18, 18]
+          });
+          driverMarker = L.marker([jobData.driver_lat, jobData.driver_lng], { icon }).addTo(map).bindPopup(`🚗 ${driverName}`);
+        }
+
+        const pts = [];
+        if (jobData.pickup_lat) pts.push([jobData.pickup_lat, jobData.pickup_lng]);
+        if (jobData.dropoff_lat) pts.push([jobData.dropoff_lat, jobData.dropoff_lng]);
+        if (hasDriver) pts.push([jobData.driver_lat, jobData.driver_lng]);
+        if (pts.length > 1) map.fitBounds(L.latLngBounds(pts), { padding: [50, 50] });
       }
     }
 

@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Manager Dashboard - Driver Coordination</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <!-- Google Maps loaded dynamically after fetching key from server -->
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
@@ -335,11 +334,7 @@
     <div class="container">
       <div class="header">
         <h1>🚗 Manager Dashboard</h1>
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <div id="wsIndicator" title="Live connection status" style="display: flex; align-items: center; gap: 6px; font-size: 13px; background: rgba(255,255,255,0.15); padding: 4px 10px; border-radius: 20px;">
-            <span id="wsDot" style="width: 8px; height: 8px; border-radius: 50%; background: #ffc107; display: inline-block;"></span>
-            <span id="wsLabel">Connecting…</span>
-          </div>
+        <div style="display: flex; align-items: center;">
           <div class="user-info">
             <span id="userName"></span><br>
             <small>Manager</small>
@@ -547,67 +542,8 @@
     let currentUser = null;
     let ws = null;
     let map = null;
-    let googleMap = null;       // Google Maps instance (used when available)
-    let useGoogleMaps = false;  // toggled true once Google Maps API loads
     let driverMarkers = {};
     let driversCache = {}; // Store driver info for quick lookup
-
-    // Called by Google Maps script once it finishes loading
-    function onGoogleMapsLoaded() {
-      useGoogleMaps = true;
-      console.log('✅ Google Maps API loaded');
-      if (currentUser) {
-        initMap();
-        initAutocomplete();
-      }
-    }
-
-    // Dynamically load Google Maps after fetching key from server
-    async function loadGoogleMaps() {
-      try {
-        const res = await fetch('/api/config');
-        const cfg = await res.json();
-        if (!cfg.googleMapsKey) {
-          console.warn('No Google Maps key configured — using Leaflet');
-          return;
-        }
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${cfg.googleMapsKey}&libraries=places&callback=onGoogleMapsLoaded`;
-        script.async = true;
-        script.defer = true;
-        document.head.appendChild(script);
-      } catch (e) {
-        console.warn('Could not load Google Maps:', e);
-      }
-    }
-    loadGoogleMaps();
-
-    function initAutocomplete() {
-      if (!useGoogleMaps || typeof google === 'undefined') return;
-      const pickupEl = document.getElementById('pickupAddress');
-      const dropoffEl = document.getElementById('dropoffAddress');
-      if (!pickupEl || !dropoffEl) return;
-
-      const opts = { componentRestrictions: { country: 'in' }, fields: ['formatted_address','geometry'] };
-
-      const pickupAC = new google.maps.places.Autocomplete(pickupEl, opts);
-      pickupAC.addListener('place_changed', () => {
-        const place = pickupAC.getPlace();
-        if (place.geometry) {
-          pickupEl.dataset.lat = place.geometry.location.lat();
-          pickupEl.dataset.lng = place.geometry.location.lng();
-        }
-      });
-
-      const dropoffAC = new google.maps.places.Autocomplete(dropoffEl, opts);
-      dropoffAC.addListener('place_changed', () => {
-        const place = dropoffAC.getPlace();
-        if (place.geometry) {
-          dropoffEl.dataset.lat = place.geometry.location.lat();
-          dropoffEl.dataset.lng = place.geometry.location.lng();
-        }
-      });
-    }
 
     // CRITICAL: Auto-detect protocol for both localhost AND production
     const protocol = window.location.protocol; // http: or https:
@@ -666,19 +602,6 @@
       }
     });
 
-    function updateConnectionIndicator(connected) {
-      const dot = document.getElementById('wsDot');
-      const label = document.getElementById('wsLabel');
-      if (!dot || !label) return;
-      if (connected) {
-        dot.style.background = '#28a745';
-        label.textContent = 'Live';
-      } else {
-        dot.style.background = '#dc3545';
-        label.textContent = 'Reconnecting…';
-      }
-    }
-
     function logout() {
       if (ws) ws.close();
       currentUser = null;
@@ -688,97 +611,55 @@
     }
 
     async function initDashboard() {
-      // Initialize WebSocket with auto-reconnect
-      let wsReconnectTimeout = null;
-      let wsConnected = false;
-
-      function connectWebSocket() {
-        if (wsReconnectTimeout) {
-          clearTimeout(wsReconnectTimeout);
-          wsReconnectTimeout = null;
-        }
-
-        ws = new WebSocket(`${WS_URL}?userId=${currentUser.id}`);
-
-        ws.onopen = () => {
-          wsConnected = true;
-          console.log('✅ Manager WebSocket connected');
-          // Re-sync drivers and jobs in case we missed updates while disconnected
-          loadDrivers();
+      // Initialize WebSocket
+      ws = new WebSocket(`${WS_URL}?userId=${currentUser.id}`);
+      
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        console.log('WebSocket message:', data);
+        
+        if (data.type === 'JOB_ASSIGNED') {
+          showNotification('Job assigned to driver!');
           loadJobs();
-          updateConnectionIndicator(true);
-        };
-
-        ws.onclose = () => {
-          wsConnected = false;
-          console.warn('⚠️ Manager WebSocket disconnected — reconnecting in 3s');
-          updateConnectionIndicator(false);
-          if (currentUser) {
-            wsReconnectTimeout = setTimeout(connectWebSocket, 3000);
+        } else if (data.type === 'JOB_STATUS_UPDATE') {
+          loadJobs();
+        } else if (data.type === 'JOB_CANCELLED_BY_DRIVER') {
+          showNotification('⚠️ Driver cancelled: ' + data.reason);
+          loadJobs();
+        } else if (data.type === 'DRIVER_LOCATION_UPDATE') {
+          const driverInfo = driversCache[data.driverId];
+          if (driverInfo) {
+            updateDriverMarker(data.driverId, data.lat, data.lng, driverInfo.name, driverInfo.status);
+          } else {
+            updateDriverMarker(data.driverId, data.lat, data.lng, 'Unknown', 'unknown');
           }
-        };
-
-        ws.onerror = (err) => {
-          console.error('❌ WebSocket error:', err);
-          ws.close(); // triggers onclose → reconnect
-        };
-
-        ws.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          console.log('📨 WebSocket message:', data);
-
-          if (data.type === 'JOB_ASSIGNED') {
-            showNotification('Job assigned to driver!');
-            loadJobs();
-          } else if (data.type === 'JOB_STATUS_UPDATE') {
-            loadJobs();
-          } else if (data.type === 'JOB_CANCELLED_BY_DRIVER') {
-            showNotification('⚠️ Driver cancelled: ' + data.reason);
-            loadJobs();
-          } else if (data.type === 'DRIVER_LOCATION_UPDATE') {
-            // Update driversCache lat/lng so status updates have fresh coords
-            if (driversCache[data.driverId]) {
-              driversCache[data.driverId].lat = data.lat;
-              driversCache[data.driverId].lng = data.lng;
-            }
-            const driverInfo = driversCache[data.driverId];
-            updateDriverMarker(data.driverId, data.lat, data.lng,
-              driverInfo ? driverInfo.name : 'Unknown',
-              driverInfo ? driverInfo.status : 'unknown',
-              data.photo_url);
-          } else if (data.type === 'DRIVER_STATUS_UPDATE') {
-            // Update local cache
-            if (driversCache[data.driverId]) {
-              driversCache[data.driverId].status = data.status;
-              driversCache[data.driverId].name = data.name;
-            } else {
-              driversCache[data.driverId] = { name: data.name, status: data.status };
-            }
-            if (data.status === 'offline') {
-              // Remove marker from map immediately
-              if (driverMarkers[data.driverId]) {
-                const m = driverMarkers[data.driverId];
-                if (useGoogleMaps) { m.setMap(null); } else { map.removeLayer(m); }
-                delete driverMarkers[data.driverId];
-              }
-            } else {
-              // Driver came online or became busy — add/update marker
-              const lat = data.lat || (driversCache[data.driverId] && driversCache[data.driverId].lat);
-              const lng = data.lng || (driversCache[data.driverId] && driversCache[data.driverId].lng);
-              if (lat && lng) {
-                updateDriverMarker(data.driverId, lat, lng, data.name, data.status, data.photo_url);
-              }
-            }
-            // Refresh driver list panel too
-            loadDrivers();
+        } else if (data.type === 'DRIVER_STATUS_UPDATE') {
+          // Update local cache
+          if (driversCache[data.driverId]) {
+            driversCache[data.driverId].status = data.status;
+          } else {
+            driversCache[data.driverId] = { name: data.name, status: data.status };
           }
-        };
-      }
+          if (data.status === 'offline') {
+            // Remove marker from map immediately — driver went offline
+            if (driverMarkers[data.driverId]) {
+              map.removeLayer(driverMarkers[data.driverId]);
+              delete driverMarkers[data.driverId];
+            }
+          } else {
+            // Driver came online or became busy — add/update marker instantly
+            if (data.lat && data.lng) {
+              updateDriverMarker(data.driverId, data.lat, data.lng, data.name, data.status);
+            }
+          }
+        }
+      };
 
-      connectWebSocket();
-
-      initMap();
-      initAutocomplete();
+      // Initialize map
+      map = L.map('map').setView([18.5204, 73.8567], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
 
       loadStats();
       loadJobs();
@@ -787,46 +668,7 @@
       setInterval(() => {
         loadStats();
         loadJobs();
-        loadDrivers();
       }, 10000);
-    }
-
-    function initMap() {
-      const mapEl = document.getElementById('map');
-      if (!mapEl) return;
-
-      // Clear any existing markers when re-initialising
-      driverMarkers = {};
-
-      if (useGoogleMaps && typeof google !== 'undefined') {
-        // --- Google Maps ---
-        googleMap = new google.maps.Map(mapEl, {
-          center: { lat: 18.5204, lng: 73.8567 },
-          zoom: 13,
-          mapTypeControl: true,
-          streetViewControl: false,
-          fullscreenControl: true,
-        });
-        map = googleMap; // keep `map` pointing at the active instance
-        console.log('🗺️ Using Google Maps');
-      } else {
-        // --- Leaflet fallback ---
-        if (map) {
-          try { map.remove(); } catch(e) {}
-        }
-        map = L.map(mapEl).setView([18.5204, 73.8567], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-        console.log('🗺️ Using Leaflet/OpenStreetMap (Google Maps not yet loaded)');
-      }
-
-      // Re-plot any drivers that were already cached
-      Object.entries(driversCache).forEach(([id, info]) => {
-        if (info.lat && info.lng && info.status !== 'offline') {
-          updateDriverMarker(id, info.lat, info.lng, info.name, info.status, info.photo_url);
-        }
-      });
     }
 
     async function loadStats() {
@@ -905,16 +747,13 @@
           // Cache all drivers for WebSocket updates
           driversCache[driver.id] = {
             name: driver.name,
-            status: driver.availability_status,
-            photo_url: driver.photo_url || null,
-            lat: driver.current_lat,
-            lng: driver.current_lng
+            status: driver.availability_status
           };
 
           // Only plot online/busy drivers on the map — offline drivers have no marker
           // When they come online, DRIVER_STATUS_UPDATE will add their marker live
           if (driver.availability_status !== 'offline' && driver.current_lat && driver.current_lng) {
-            updateDriverMarker(driver.id, driver.current_lat, driver.current_lng, driver.name, driver.availability_status, driver.photo_url);
+            updateDriverMarker(driver.id, driver.current_lat, driver.current_lng, driver.name, driver.availability_status);
           }
         });
       } catch (error) {
@@ -922,122 +761,58 @@
       }
     }
 
-    // Build driver icon HTML (shared by Leaflet + Google Maps via canvas/SVG)
-    function buildDriverMarkerHtml(name, status, photoUrl) {
+    function makeDriverIcon(status) {
       const colour = status === 'online' ? '#28a745' : status === 'busy' ? '#fd7e14' : '#6c757d';
-      const initials = (name || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
-      const inner = photoUrl
-        ? `<img src="${photoUrl}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.nextSibling.style.display='flex'"/><span style="display:none;width:36px;height:36px;border-radius:50%;background:${colour};color:white;align-items:center;justify-content:center;font-weight:bold;font-size:13px;">${initials}</span>`
-        : `<span style="display:flex;width:36px;height:36px;border-radius:50%;background:${colour};color:white;align-items:center;justify-content:center;font-weight:bold;font-size:13px;">${initials}</span>`;
-      return `<div style="position:relative;width:40px;height:40px;border-radius:50%;border:3px solid ${colour};box-shadow:0 2px 6px rgba(0,0,0,0.35);overflow:hidden;cursor:pointer;display:flex;align-items:center;justify-content:center;background:white;">${inner}</div>`;
-    }
-
-    function makeLeafletIcon(name, status, photoUrl) {
       return L.divIcon({
-        html: buildDriverMarkerHtml(name, status, photoUrl),
+        html: `<div style="background: ${colour}; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🚗</div>`,
         className: '',
-        iconSize: [40, 40],
-        iconAnchor: [20, 20]
+        iconSize: [32, 32]
       });
     }
 
-    function makeGoogleIcon(name, status, photoUrl) {
-      // Google Maps OverlayView for rich HTML markers
-      // We use a DivOverlay pattern via Marker + icon URL fallback for simplicity
-      // Return null to signal we use custom overlay instead
-      return null;
-    }
-
-    // Google Maps custom HTML marker using OverlayView
-    class HtmlMarker extends google.maps?.OverlayView || Object {
-      constructor(position, html, map) {
-        super();
-        this._pos = position;
-        this._html = html;
-        this._map = map;
-        this._div = null;
-        if (google?.maps?.OverlayView) this.setMap(map);
-      }
-      onAdd() {
-        this._div = document.createElement('div');
-        this._div.style.cssText = 'position:absolute;transform:translate(-50%,-50%);';
-        this._div.innerHTML = this._html;
-        this.getPanes().overlayMouseTarget.appendChild(this._div);
-      }
-      draw() {
-        if (!this._div) return;
-        const pt = this.getProjection().fromLatLngToDivPixel(this._pos);
-        if (pt) { this._div.style.left = pt.x + 'px'; this._div.style.top = pt.y + 'px'; }
-      }
-      onRemove() { if (this._div) { this._div.parentNode.removeChild(this._div); this._div = null; } }
-      setPosition(pos) { this._pos = pos; this.draw(); }
-      setHtml(html) { this._html = html; if (this._div) this._div.innerHTML = html; }
-      setMapInstance(m) { this.setMap(m); }
-      addClickListener(fn) { if (this._div) this._div.addEventListener('click', fn); }
-    }
-
-    function updateDriverMarker(driverId, lat, lng, name, status, photoUrl) {
-      lat = parseFloat(lat);
-      lng = parseFloat(lng);
-      if (isNaN(lat) || isNaN(lng)) return;
-
-      // Update cache with latest photo
-      if (driversCache[driverId]) {
-        driversCache[driverId].photo_url = photoUrl || driversCache[driverId].photo_url;
-      }
-      const resolvedPhoto = photoUrl || (driversCache[driverId] && driversCache[driverId].photo_url);
-      const infoHtml = `<b>${name}</b><br>Status: ${status}`;
-      const markerHtml = buildDriverMarkerHtml(name, status, resolvedPhoto);
-
-      if (useGoogleMaps && googleMap) {
-        if (driverMarkers[driverId]) {
-          driverMarkers[driverId].setPosition(new google.maps.LatLng(lat, lng));
-          driverMarkers[driverId].setHtml(markerHtml);
-          if (driverMarkers[driverId]._infoWindow) driverMarkers[driverId]._infoWindow.setContent(infoHtml);
-        } else {
-          const overlay = new HtmlMarker(new google.maps.LatLng(lat, lng), markerHtml, googleMap);
-          const infoWindow = new google.maps.InfoWindow({ content: infoHtml });
-          overlay._infoWindow = infoWindow;
-          overlay.addClickListener(() => infoWindow.open(googleMap));
-          driverMarkers[driverId] = overlay;
-        }
+    function updateDriverMarker(driverId, lat, lng, name, status) {
+      if (driverMarkers[driverId]) {
+        // Update position AND icon colour to reflect current status
+        driverMarkers[driverId].setLatLng([lat, lng]);
+        driverMarkers[driverId].setIcon(makeDriverIcon(status));
+        driverMarkers[driverId].setPopupContent(`<b>${name}</b><br>Status: ${status}`);
       } else {
-        if (driverMarkers[driverId]) {
-          driverMarkers[driverId].setLatLng([lat, lng]);
-          driverMarkers[driverId].setIcon(makeLeafletIcon(name, status, resolvedPhoto));
-          driverMarkers[driverId].setPopupContent(infoHtml);
-        } else {
-          const marker = L.marker([lat, lng], { icon: makeLeafletIcon(name, status, resolvedPhoto) }).addTo(map);
-          marker.bindTooltip(name || 'Driver', { permanent: false, direction: 'right', offset: [10, 0] });
-          marker.bindPopup(infoHtml);
-          driverMarkers[driverId] = marker;
+        const marker = L.marker([lat, lng], { icon: makeDriverIcon(status) }).addTo(map);
+        if (name) {
+          marker.bindTooltip(name, {
+            permanent: true,
+            direction: 'right',
+            offset: [10, 0],
+            className: 'driver-label'
+          });
+          marker.bindPopup(`<b>${name}</b><br>Status: ${status}`);
         }
+        driverMarkers[driverId] = marker;
       }
     }
 
     document.getElementById('createJobForm').addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      // Use real coords from autocomplete if available, else random fallback
-      const pickupEl = document.getElementById('pickupAddress');
-      const dropoffEl = document.getElementById('dropoffAddress');
-      const baseLat = 18.5204, baseLng = 73.8567;
-      const pickupCoords = {
-        lat: parseFloat(pickupEl.dataset.lat) || baseLat + (Math.random() - 0.5) * 0.1,
-        lng: parseFloat(pickupEl.dataset.lng) || baseLng + (Math.random() - 0.5) * 0.1
+      const geocode = (address) => {
+        const baseLat = 18.5204;
+        const baseLng = 73.8567;
+        return {
+          lat: baseLat + (Math.random() - 0.5) * 0.1,
+          lng: baseLng + (Math.random() - 0.5) * 0.1
+        };
       };
-      const dropoffCoords = {
-        lat: parseFloat(dropoffEl.dataset.lat) || baseLat + (Math.random() - 0.5) * 0.1,
-        lng: parseFloat(dropoffEl.dataset.lng) || baseLng + (Math.random() - 0.5) * 0.1
-      };
+
+      const pickupCoords = geocode(document.getElementById('pickupAddress').value);
+      const dropoffCoords = geocode(document.getElementById('dropoffAddress').value);
 
       const jobData = {
         managerId: currentUser.id,
         jobType: document.getElementById('jobType').value,
-        pickupAddress: pickupEl.value,
+        pickupAddress: document.getElementById('pickupAddress').value,
         pickupLat: pickupCoords.lat,
         pickupLng: pickupCoords.lng,
-        dropoffAddress: dropoffEl.value,
+        dropoffAddress: document.getElementById('dropoffAddress').value,
         dropoffLat: dropoffCoords.lat,
         dropoffLng: dropoffCoords.lng,
         carDetails: document.getElementById('carDetails').value,
@@ -1218,28 +993,19 @@
         const html = drivers.map(driver => `
           <div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e0e0e0;">
             <div style="display: flex; justify-content: space-between; align-items: start; flex-wrap: wrap; gap: 12px;">
-              <div style="display: flex; align-items: center; gap: 14px; flex: 1; min-width: 200px;">
-                <div style="position:relative;flex-shrink:0;">
-                  ${driver.photo_url
-                    ? `<img src="${driver.photo_url}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #667eea;" />`
-                    : `<div style="width:56px;height:56px;border-radius:50%;background:#667eea;color:white;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:bold;border:2px solid #667eea;">${driver.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)}</div>`
-                  }
-                  <label title="Upload photo" style="position:absolute;bottom:-2px;right:-2px;background:#667eea;color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;">
-                    📷<input type="file" accept="image/*" style="display:none;" onchange="uploadDriverPhoto('${driver.id}', this)">
-                  </label>
-                </div>
-                <div>
-                  <h3 style="margin: 0 0 4px 0; font-size: 17px;">${driver.name}</h3>
-                  <p style="margin: 3px 0; color: #666; font-size:14px;">📞 <a href="tel:${driver.phone}" style="color: #667eea; text-decoration: none;">${driver.phone}</a></p>
-                  <p style="margin: 3px 0; font-size:14px;">
-                    <span style="color: ${driver.availability_status === 'online' ? '#28a745' : '#999'}; font-weight: 600;">
-                      ${driver.availability_status === 'online' ? '🟢 Online' : '⚪ Offline'}
-                    </span>
-                    &nbsp;·&nbsp; ${driver.total_jobs_completed || 0} jobs &nbsp;·&nbsp; ⭐ ${(driver.average_rating || 0).toFixed(1)}
-                  </p>
-                </div>
+              <div style="flex: 1; min-width: 200px;">
+                <h3 style="margin: 0 0 8px 0; font-size: 18px;">👤 ${driver.name}</h3>
+                <p style="margin: 4px 0; color: #666;">📞 <a href="tel:${driver.phone}" style="color: #667eea; text-decoration: none;">${driver.phone}</a></p>
+                <p style="margin: 4px 0;">
+                  Status: <span style="color: ${driver.availability_status === 'online' ? '#28a745' : '#999'}; font-weight: 600;">
+                    ${driver.availability_status === 'online' ? '🟢 Online' : '⚪ Offline'}
+                  </span>
+                </p>
+                <p style="margin: 4px 0; font-size: 14px; color: #666;">
+                  Jobs: ${driver.total_jobs_completed || 0} completed | Rating: ⭐ ${(driver.average_rating || 0).toFixed(1)}
+                </p>
               </div>
-              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items:center;">
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                 <button onclick="removeDriver('${driver.id}', '${driver.name}')" class="btn btn-danger" style="white-space: nowrap;">
                   Remove
                 </button>
@@ -1252,23 +1018,6 @@
       } catch (error) {
         console.error('Failed to load drivers:', error);
         document.getElementById('driversList').innerHTML = '<p style="color: #dc3545; text-align: center;">Failed to load drivers</p>';
-      }
-    }
-
-    async function uploadDriverPhoto(driverId, input) {
-      const file = input.files[0];
-      if (!file) return;
-      const formData = new FormData();
-      formData.append('photo', file);
-      try {
-        const res = await fetch(`${API_URL}/api/drivers/${driverId}/photo`, { method: 'POST', body: formData });
-        const data = await res.json();
-        if (data.photo_url) {
-          showNotification('✅ Photo updated!');
-          loadAdminDrivers(); // refresh list
-        }
-      } catch (e) {
-        showNotification('❌ Photo upload failed');
       }
     }
 

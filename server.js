@@ -5,6 +5,27 @@ const { v4: uuidv4 } = require('uuid');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const multer = require('multer');
+
+// Photo upload storage
+const uploadDir = path.join(__dirname, 'public', 'uploads');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+const photoStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.jpg';
+    cb(null, `driver-${req.params.driverId}-${Date.now()}${ext}`);
+  }
+});
+const photoUpload = multer({
+  storage: photoStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('Only image files allowed'));
+  }
+});
 
 const app = express();
 const server = http.createServer(app);
@@ -278,11 +299,13 @@ app.post('/api/drivers/location', (req, res) => {
   connections.forEach((ws, userId) => {
     const user = db.users.find(u => u.id === userId);
     if (user && user.role === 'manager') {
+      const driverForLocation = db.drivers.find(d => d.id === driverId);
       sendToUser(userId, {
         type: 'DRIVER_LOCATION_UPDATE',
         driverId,
         lat,
-        lng
+        lng,
+        photo_url: driverForLocation ? driverForLocation.photo_url : null
       });
     }
   });
@@ -310,7 +333,8 @@ app.post('/api/drivers/availability', (req, res) => {
           status,
           lat: driver.current_lat,
           lng: driver.current_lng,
-          name: driverUser ? driverUser.name : 'Unknown'
+          name: driverUser ? driverUser.name : 'Unknown',
+          photo_url: driver.photo_url || null
         });
       }
     });
@@ -436,7 +460,10 @@ app.get('/api/jobs/:id', (req, res) => {
     manager_name: manager ? manager.name : 'Unknown',
     driver_id: driver ? driver.id : null,
     driver_name: driver ? driver.name : null,
-    driver_phone: driver ? driver.phone : null
+    driver_phone: driver ? driver.phone : null,
+    driver_photo_url: driver ? driver.photo_url || null : null,
+    driver_lat: driver ? driver.current_lat : null,
+    driver_lng: driver ? driver.current_lng : null,
   });
 });
 
@@ -694,6 +721,36 @@ app.post('/api/calls/initiate', (req, res) => {
     // callerPhone: callerUser.phone (hidden from response)
     instructions: 'To enable: Sign up for Exotel.com or Twilio.com and add API credentials'
   });
+});
+
+// ============================================
+// ============================================
+// CONFIG — serve non-secret config to frontend
+// ============================================
+app.get('/api/config', (req, res) => {
+  res.json({
+    googleMapsKey: process.env.GOOGLE_MAPS_API_KEY || ''
+  });
+});
+
+// ============================================
+// DRIVER PHOTO UPLOAD
+// ============================================
+app.post('/api/drivers/:driverId/photo', photoUpload.single('photo'), (req, res) => {
+  const { driverId } = req.params;
+  const driver = db.drivers.find(d => d.id === driverId);
+  if (!driver) return res.status(404).json({ error: 'Driver not found' });
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+  // Delete old photo if exists
+  if (driver.photo_url) {
+    const oldPath = path.join(__dirname, 'public', driver.photo_url.replace(/^\//, ''));
+    if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+  }
+
+  driver.photo_url = `/uploads/${req.file.filename}`;
+  saveDB();
+  res.json({ photo_url: driver.photo_url });
 });
 
 // ============================================

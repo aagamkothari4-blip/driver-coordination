@@ -386,18 +386,9 @@
   <!-- Main App -->
   <div id="driverApp" class="hidden">
     <div class="header">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div style="position:relative;flex-shrink:0;">
-          <div id="profileAvatar" style="width:48px;height:48px;border-radius:50%;background:#667eea;color:white;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:bold;border:2px solid white;overflow:hidden;cursor:pointer;" onclick="document.getElementById('photoInput').click()">
-            ?
-          </div>
-          <input type="file" id="photoInput" accept="image/*" style="display:none;" onchange="uploadMyPhoto(this)">
-          <div style="position:absolute;bottom:-2px;right:-2px;background:rgba(255,255,255,0.9);border-radius:50%;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;pointer-events:none;">📷</div>
-        </div>
-        <div>
-          <h1 id="driverName">Driver</h1>
-          <p style="font-size:12px;opacity:0.8;">Tap photo to update</p>
-        </div>
+      <div>
+        <h1 id="driverName">Driver</h1>
+        <p>Ready to accept jobs</p>
       </div>
       <button class="btn-logout" onclick="logout()">Logout</button>
     </div>
@@ -451,10 +442,6 @@
         <h2>📍 Active Job</h2>
         <div id="activeJobDetails"></div>
         <div id="map"></div>
-        <div id="etaPanel" style="display:none;background:#f0f7ff;border:1px solid #b3d4f5;border-radius:8px;padding:12px 16px;margin:12px 0;font-size:15px;">
-          <div id="etaText" style="font-weight:600;color:#1a56a0;"></div>
-          <div id="etaDistance" style="color:#555;margin-top:4px;font-size:13px;"></div>
-        </div>
         <button id="actionButton" class="btn btn-primary" onclick="handleJobAction()">Mark as Picked Up</button>
         <button id="cancelButton" class="btn btn-warning" onclick="showCancelConfirm()">Cancel This Job</button>
       </div>
@@ -480,30 +467,7 @@
     let currentDriver = null;
     let ws = null;
     let map = null;
-    let googleMap = null;
-    let useGoogleMaps = false;
-    let directionsRenderer = null;
     let currentNotification = null;
-
-    function onGoogleMapsLoaded() {
-      useGoogleMaps = true;
-      directionsRenderer = new google.maps.DirectionsRenderer({ suppressMarkers: false });
-      console.log('✅ Google Maps loaded on driver portal');
-      if (activeJob) renderDriverMap();
-    }
-
-    async function loadGoogleMaps() {
-      try {
-        const res = await fetch('/api/config');
-        const cfg = await res.json();
-        if (!cfg.googleMapsKey) return;
-        const s = document.createElement('script');
-        s.src = `https://maps.googleapis.com/maps/api/js?key=${cfg.googleMapsKey}&libraries=places&callback=onGoogleMapsLoaded`;
-        s.async = true; s.defer = true;
-        document.head.appendChild(s);
-      } catch(e) { console.warn('Could not load Google Maps:', e); }
-    }
-    loadGoogleMaps();
     let countdownInterval = null;
     let activeJob = null;
     let jobStatus = 'none';
@@ -565,7 +529,6 @@
           document.getElementById('loginScreen').classList.add('hidden');
           document.getElementById('driverApp').classList.remove('hidden');
           document.getElementById('driverName').textContent = userData.name;
-          updateProfileAvatar(userData.photo_url, userData.name);
           
           const savedStatus = localStorage.getItem('driverStatus');
           if (savedStatus === 'online') {
@@ -599,7 +562,6 @@
         if (response.ok && data.user.role === 'driver') {
           currentUser = data.user;
           currentDriver = data.user;
-          updateProfileAvatar(data.user.photo_url, data.user.name);
           localStorage.setItem('currentUser', JSON.stringify(data.user));
           document.getElementById('loginScreen').classList.add('hidden');
           document.getElementById('driverApp').classList.remove('hidden');
@@ -647,32 +609,6 @@
 
       loadDriverStats();
       loadActiveJob();
-    }
-
-    function updateProfileAvatar(photoUrl, name) {
-      const el = document.getElementById('profileAvatar');
-      if (!el) return;
-      const initials = (name || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
-      if (photoUrl) {
-        el.innerHTML = `<img src="${photoUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.textContent='${initials}'">`;
-      } else {
-        el.textContent = initials;
-      }
-    }
-
-    async function uploadMyPhoto(input) {
-      const file = input.files[0];
-      if (!file || !currentDriver) return;
-      const formData = new FormData();
-      formData.append('photo', file);
-      try {
-        const res = await fetch(`${API_URL}/api/drivers/${currentDriver.id}/photo`, { method: 'POST', body: formData });
-        const data = await res.json();
-        if (data.photo_url) {
-          currentDriver.photo_url = data.photo_url;
-          updateProfileAvatar(data.photo_url, currentDriver.name);
-        }
-      } catch(e) { console.error('Photo upload failed:', e); }
     }
 
     function logout() {
@@ -823,82 +759,38 @@
       
       document.getElementById('activeJobDetails').innerHTML = html;
       
-      // Render map after short delay so DOM is ready
-      setTimeout(() => renderDriverMap(), 100);
+      // Initialize map
+      setTimeout(() => {
+        try {
+          if (map) {
+            map.remove();
+            map = null;
+          }
+          
+          map = L.map('map').setView([activeJob.pickup_lat, activeJob.pickup_lng], 14);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+          
+          L.marker([activeJob.pickup_lat, activeJob.pickup_lng])
+            .addTo(map)
+            .bindPopup('<b>Pickup</b><br>' + activeJob.pickup_address);
+          
+          L.marker([activeJob.dropoff_lat, activeJob.dropoff_lng])
+            .addTo(map)
+            .bindPopup('<b>Dropoff</b><br>' + activeJob.dropoff_address);
+          
+          const bounds = L.latLngBounds(
+            [activeJob.pickup_lat, activeJob.pickup_lng],
+            [activeJob.dropoff_lat, activeJob.dropoff_lng]
+          );
+          map.fitBounds(bounds, { padding: [50, 50] });
+          
+          console.log('✅ Map initialized');
+        } catch (error) {
+          console.error('❌ Map error:', error);
+        }
+      }, 100);
       
       updateActionButton();
-    }
-
-    // ===== ROUTE + ETA RENDERING =====
-    function renderDriverMap() {
-      if (!activeJob) return;
-
-      // Determine which leg to show based on job stage
-      // 'assigned' → driver heading to pickup; 'picked_up'/'in_progress' → heading to dropoff
-      const isHeadingToPickup = (jobStatus === 'assigned');
-      const destLat = isHeadingToPickup ? activeJob.pickup_lat : activeJob.dropoff_lat;
-      const destLng = isHeadingToPickup ? activeJob.pickup_lng : activeJob.dropoff_lng;
-      const destLabel = isHeadingToPickup ? 'Pickup' : 'Dropoff';
-      const destAddress = isHeadingToPickup ? activeJob.pickup_address : activeJob.dropoff_address;
-
-      if (useGoogleMaps && typeof google !== 'undefined') {
-        // --- Google Maps with Directions ---
-        const mapEl = document.getElementById('map');
-        if (!googleMap) {
-          googleMap = new google.maps.Map(mapEl, {
-            center: { lat: destLat, lng: destLng },
-            zoom: 14,
-            streetViewControl: false,
-          });
-          map = googleMap;
-          directionsRenderer.setMap(googleMap);
-        }
-
-        // Origin: driver's current location if available, else pickup
-        const originLat = currentDriver && currentDriver.current_lat ? currentDriver.current_lat : activeJob.pickup_lat;
-        const originLng = currentDriver && currentDriver.current_lng ? currentDriver.current_lng : activeJob.pickup_lng;
-
-        const directionsService = new google.maps.DirectionsService();
-        const request = {
-          origin: new google.maps.LatLng(originLat, originLng),
-          destination: new google.maps.LatLng(destLat, destLng),
-          travelMode: google.maps.TravelMode.DRIVING,
-        };
-
-        // If heading to pickup, also show dropoff marker
-        directionsService.route(request, (result, status) => {
-          if (status === 'OK') {
-            directionsRenderer.setDirections(result);
-            const leg = result.routes[0].legs[0];
-            document.getElementById('etaPanel').style.display = 'block';
-            document.getElementById('etaText').textContent = `🕐 ETA to ${destLabel}: ${leg.duration.text}`;
-            document.getElementById('etaDistance').textContent = `📏 Distance: ${leg.distance.text}`;
-          }
-        });
-
-        // Show both pickup and dropoff markers
-        new google.maps.Marker({ position: { lat: activeJob.pickup_lat, lng: activeJob.pickup_lng }, map: googleMap, label: 'P', title: 'Pickup: ' + activeJob.pickup_address });
-        new google.maps.Marker({ position: { lat: activeJob.dropoff_lat, lng: activeJob.dropoff_lng }, map: googleMap, label: 'D', title: 'Dropoff: ' + activeJob.dropoff_address });
-
-      } else {
-        // --- Leaflet fallback ---
-        try {
-          if (map && map.remove) { map.remove(); map = null; }
-          map = L.map('map').setView([destLat, destLng], 14);
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-          L.marker([activeJob.pickup_lat, activeJob.pickup_lng]).addTo(map).bindPopup('<b>Pickup</b><br>' + activeJob.pickup_address);
-          L.marker([activeJob.dropoff_lat, activeJob.dropoff_lng]).addTo(map).bindPopup('<b>Dropoff</b><br>' + activeJob.dropoff_address);
-          map.fitBounds([[activeJob.pickup_lat, activeJob.pickup_lng],[activeJob.dropoff_lat, activeJob.dropoff_lng]], { padding: [50,50] });
-        } catch(e) { console.error('Leaflet error:', e); }
-      }
-    }
-
-    // Called when driver marks as picked up — re-render route for second leg
-    function refreshRoute() {
-      if (useGoogleMaps && googleMap && directionsRenderer) {
-        directionsRenderer.setDirections({ routes: [] }); // clear
-      }
-      renderDriverMap();
     }
 
     function updateActionButton() {
@@ -932,7 +824,6 @@
           
           jobStatus = 'in_progress';
           updateActionButton();
-          refreshRoute(); // switch map to show route to dropoff
           actionBtn.disabled = false;
           console.log('✅ Marked as picked up');
         } catch (error) {
@@ -1044,78 +935,8 @@
     // ===== GPS TRACKING FUNCTIONS =====
     let gpsWatchId = null;
     let locationUpdateInterval = null;
-    let wakeLock = null;
-    let lastLocationSent = 0;
-    let isGPSTracking = false;
 
-    // ---- Wake Lock: prevents browser from throttling when tab is in background ----
-    async function requestWakeLock() {
-      if ('wakeLock' in navigator) {
-        try {
-          wakeLock = await navigator.wakeLock.request('screen');
-          console.log('🔒 Wake lock acquired');
-          wakeLock.addEventListener('release', () => {
-            console.log('🔓 Wake lock released — will re-acquire on next visibility');
-          });
-        } catch (err) {
-          console.warn('Wake lock not available:', err.message);
-        }
-      }
-    }
-
-    async function releaseWakeLock() {
-      if (wakeLock) {
-        await wakeLock.release();
-        wakeLock = null;
-      }
-    }
-
-    // ---- Visibility recovery: restarts GPS when tab comes back into focus ----
-    document.addEventListener('visibilitychange', async () => {
-      if (document.visibilityState === 'visible') {
-        console.log('👁️ Tab visible again — checking GPS state');
-        // Re-acquire wake lock if it was released
-        if (isGPSTracking && !wakeLock) {
-          await requestWakeLock();
-        }
-        // Restart the interval if it got killed by browser throttling
-        if (isGPSTracking && !locationUpdateInterval) {
-          console.log('♻️ Restarting location interval after background');
-          startLocationInterval();
-        }
-        // Force an immediate location update on return
-        if (isGPSTracking) {
-          navigator.geolocation.getCurrentPosition(
-            position => updateDriverLocation(position.coords.latitude, position.coords.longitude),
-            null,
-            { enableHighAccuracy: true, maximumAge: 10000 }
-          );
-        }
-      } else {
-        console.log('👻 Tab hidden — GPS will continue via watchPosition');
-      }
-    });
-
-    function startLocationInterval() {
-      // Clear any stale interval first
-      if (locationUpdateInterval) {
-        clearInterval(locationUpdateInterval);
-        locationUpdateInterval = null;
-      }
-      locationUpdateInterval = setInterval(() => {
-        const now = Date.now();
-        // Only send if it has been at least 8 seconds since last send (avoid spam)
-        if (now - lastLocationSent > 8000) {
-          navigator.geolocation.getCurrentPosition(
-            position => updateDriverLocation(position.coords.latitude, position.coords.longitude),
-            err => console.warn('Interval GPS error:', err.message),
-            { enableHighAccuracy: true, maximumAge: 8000 }
-          );
-        }
-      }, 10000); // Every 10 seconds
-    }
-
-    async function startGPSTracking() {
+    function startGPSTracking() {
       console.log('🛰️ Starting GPS tracking...');
       
       if (!navigator.geolocation) {
@@ -1123,11 +944,6 @@
         updateGPSIndicator(null, null, 'Not Supported');
         return;
       }
-
-      isGPSTracking = true;
-
-      // Request wake lock to keep the browser active
-      await requestWakeLock();
       
       // Request permission and get initial position
       navigator.geolocation.getCurrentPosition(
@@ -1143,13 +959,13 @@
           updateGPSIndicator(null, null, 'Permission Denied');
         },
         { 
-          enableHighAccuracy: true,
+          enableHighAccuracy: true,  // Use GPS chip, not WiFi
           timeout: 10000,
           maximumAge: 0
         }
       );
       
-      // Watch position continuously (fires on movement, most reliable method)
+      // Watch position continuously (updates when driver moves)
       gpsWatchId = navigator.geolocation.watchPosition(
         position => {
           console.log('📍 GPS update:', position.coords.latitude.toFixed(6), position.coords.longitude.toFixed(6));
@@ -1157,7 +973,6 @@
         },
         error => {
           console.error('GPS watch error:', error);
-          // If watchPosition fails, the interval below is our fallback
         },
         { 
           enableHighAccuracy: true,
@@ -1166,15 +981,22 @@
         }
       );
       
-      // Interval as a safety net — catches cases where watchPosition stalls
-      startLocationInterval();
+      // Also send updates every 10 seconds (even if not moving)
+      locationUpdateInterval = setInterval(() => {
+        navigator.geolocation.getCurrentPosition(
+          position => {
+            updateDriverLocation(position.coords.latitude, position.coords.longitude);
+          },
+          null,
+          { enableHighAccuracy: true, maximumAge: 5000 }
+        );
+      }, 10000); // Every 10 seconds
       
-      console.log('✅ GPS tracking started (watchPosition + interval + wake lock)');
+      console.log('✅ GPS tracking started');
     }
 
     function stopGPSTracking() {
       console.log('⏹️ Stopping GPS tracking');
-      isGPSTracking = false;
       
       if (gpsWatchId) {
         navigator.geolocation.clearWatch(gpsWatchId);
@@ -1185,15 +1007,12 @@
         clearInterval(locationUpdateInterval);
         locationUpdateInterval = null;
       }
-
-      releaseWakeLock();
       
       updateGPSIndicator(null, null, 'Offline');
     }
 
     async function updateDriverLocation(lat, lng) {
       try {
-        lastLocationSent = Date.now();
         await fetch(`${API_URL}/api/drivers/location`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1216,7 +1035,6 @@
         
       } catch (error) {
         console.error('❌ Failed to send location:', error);
-        updateGPSIndicator(null, null, 'Error');
       }
     }
 
