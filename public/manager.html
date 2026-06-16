@@ -121,6 +121,12 @@
       z-index: 99999 !important;
       pointer-events: all !important;
     }
+
+    /* Hide Google Maps error popup — doesn't affect functionality */
+    .gm-err-container, .gm-err-content, .gm-err-message,
+    div[class*="gm-err"] {
+      display: none !important;
+    }
     
     .jobs-list {
       max-height: 500px;
