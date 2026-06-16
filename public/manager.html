@@ -555,6 +555,7 @@
     // Called by Google Maps script once it finishes loading
     function onGoogleMapsLoaded() {
       useGoogleMaps = true;
+      HtmlMarker = createHtmlMarkerClass(); // safe to create now
       console.log('✅ Google Maps API loaded');
       if (currentUser) {
         initMap();
@@ -948,33 +949,34 @@
       return null;
     }
 
-    // Google Maps custom HTML marker using OverlayView
-    class HtmlMarker extends google.maps?.OverlayView || Object {
-      constructor(position, html, map) {
-        super();
-        this._pos = position;
-        this._html = html;
-        this._map = map;
-        this._div = null;
-        if (google?.maps?.OverlayView) this.setMap(map);
-      }
-      onAdd() {
-        this._div = document.createElement('div');
-        this._div.style.cssText = 'position:absolute;transform:translate(-50%,-50%);';
-        this._div.innerHTML = this._html;
-        this.getPanes().overlayMouseTarget.appendChild(this._div);
-      }
-      draw() {
-        if (!this._div) return;
-        const pt = this.getProjection().fromLatLngToDivPixel(this._pos);
-        if (pt) { this._div.style.left = pt.x + 'px'; this._div.style.top = pt.y + 'px'; }
-      }
-      onRemove() { if (this._div) { this._div.parentNode.removeChild(this._div); this._div = null; } }
-      setPosition(pos) { this._pos = pos; this.draw(); }
-      setHtml(html) { this._html = html; if (this._div) this._div.innerHTML = html; }
-      setMapInstance(m) { this.setMap(m); }
-      addClickListener(fn) { if (this._div) this._div.addEventListener('click', fn); }
+    // Google Maps custom HTML marker — created lazily after Maps API loads
+    function createHtmlMarkerClass() {
+      return class HtmlMarker extends google.maps.OverlayView {
+        constructor(position, html, map) {
+          super();
+          this._pos = position;
+          this._html = html;
+          this._div = null;
+          this.setMap(map);
+        }
+        onAdd() {
+          this._div = document.createElement('div');
+          this._div.style.cssText = 'position:absolute;transform:translate(-50%,-50%);cursor:pointer;';
+          this._div.innerHTML = this._html;
+          this.getPanes().overlayMouseTarget.appendChild(this._div);
+        }
+        draw() {
+          if (!this._div) return;
+          const pt = this.getProjection().fromLatLngToDivPixel(this._pos);
+          if (pt) { this._div.style.left = pt.x + 'px'; this._div.style.top = pt.y + 'px'; }
+        }
+        onRemove() { if (this._div) { this._div.parentNode.removeChild(this._div); this._div = null; } }
+        setPosition(pos) { this._pos = pos; this.draw(); }
+        setHtml(html) { this._html = html; if (this._div) this._div.innerHTML = html; }
+        addClickListener(fn) { if (this._div) this._div.addEventListener('click', fn); }
+      };
     }
+    let HtmlMarker = null; // assigned once Google Maps loads
 
     function updateDriverMarker(driverId, lat, lng, name, status, photoUrl) {
       lat = parseFloat(lat);
