@@ -445,6 +445,12 @@
       </div>
     </div>
 
+    <!-- Pending/Recent Jobs -->
+    <div id="jobHistorySection" class="section" style="margin-top:0;">
+      <h2 style="margin-bottom:12px;">📋 Recent Jobs</h2>
+      <div id="jobHistoryList"><p style="color:#999;text-align:center;padding:20px 0;">No recent jobs</p></div>
+    </div>
+
     <!-- Active Job -->
     <div id="activeJobSection" class="hidden">
       <div class="section">
@@ -647,6 +653,47 @@
 
       loadDriverStats();
       loadActiveJob();
+      loadJobHistory();
+
+      // Refresh job history every 30 seconds
+      setInterval(loadJobHistory, 30000);
+    }
+
+    async function loadJobHistory() {
+      if (!currentDriver) return;
+      try {
+        const res = await fetch(`${API_URL}/api/driver/jobs?driverId=${currentDriver.id}`);
+        const jobs = await res.json();
+        const el = document.getElementById('jobHistoryList');
+        if (!el) return;
+
+        if (!jobs.length) {
+          el.innerHTML = '<p style="color:#999;text-align:center;padding:20px 0;">No recent jobs</p>';
+          return;
+        }
+
+        const statusColour = { completed: '#28a745', in_progress: '#667eea', assigned: '#fd7e14', cancelled: '#dc3545', pending: '#999' };
+        const statusLabel = { completed: '✅ Completed', in_progress: '🚗 In Progress', assigned: '📬 Assigned', cancelled: '❌ Cancelled', pending: '⏳ Pending' };
+
+        el.innerHTML = jobs.slice(0, 10).map(job => `
+          <div style="border:1px solid #e0e0e0;border-radius:8px;padding:12px;margin-bottom:10px;background:white;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <span style="font-weight:600;font-size:13px;color:#555;">Job #${job.id.slice(0,8)}</span>
+              <span style="font-size:12px;font-weight:600;color:${statusColour[job.status]||'#999'};background:${statusColour[job.status]||'#999'}18;padding:2px 8px;border-radius:12px;">
+                ${statusLabel[job.status] || job.status}
+              </span>
+            </div>
+            <div style="font-size:13px;color:#444;line-height:1.6;">
+              <div>📍 <strong>From:</strong> ${job.pickup_address}</div>
+              <div>🏁 <strong>To:</strong> ${job.dropoff_address}</div>
+              ${job.estimated_distance ? `<div>📏 ${job.estimated_distance.toFixed(1)} km &nbsp;·&nbsp; 💰 ₹${Math.round(job.estimated_distance * 50)}</div>` : ''}
+              <div style="color:#999;font-size:11px;margin-top:4px;">${new Date(job.created_at).toLocaleString('en-IN')}</div>
+            </div>
+          </div>
+        `).join('');
+      } catch(e) {
+        console.error('Failed to load job history:', e);
+      }
     }
 
     function updateProfileAvatar(photoUrl, name) {

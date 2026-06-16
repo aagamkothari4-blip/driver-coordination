@@ -313,6 +313,71 @@ app.post('/api/drivers/location', (req, res) => {
   res.json({ success: true });
 });
 
+// Get jobs for a specific driver (history)
+app.get('/api/driver/jobs', (req, res) => {
+  const { driverId } = req.query;
+  if (!driverId) return res.status(400).json({ error: 'driverId required' });
+
+  const jobs = db.jobs
+    .filter(j => j.assigned_driver === driverId)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  res.json(jobs);
+});
+
+// Retry job notification (re-run cascade from scratch)
+app.post('/api/jobs/:id/retry', (req, res) => {
+  const { id } = req.params;
+  const job = db.jobs.find(j => j.id === id);
+
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+  if (!['unassigned', 'pending'].includes(job.status)) {
+    return res.status(400).json({ error: 'Job cannot be retried in its current status' });
+  }
+
+  // Reset job status to pending
+  job.status = 'pending';
+  job.assigned_driver = null;
+  saveDB();
+
+  // Clear any existing cascade timer
+  if (cascadeTimers.has(id)) {
+    clearTimeout(cascadeTimers.get(id));
+    cascadeTimers.delete(id);
+  }
+
+  // Reset queue entries for this job and rebuild
+  db.job_queue = db.job_queue.filter(q => q.job_id !== id);
+
+  const onlineDrivers = db.drivers.filter(d => d.availability_status === 'online');
+  if (onlineDrivers.length === 0) {
+    job.status = 'unassigned';
+    saveDB();
+    return res.status(400).json({ error: 'No online drivers available' });
+  }
+
+  // Sort by distance to pickup
+  const sorted = onlineDrivers.map(d => ({
+    driver: d,
+    dist: Math.sqrt(Math.pow((d.current_lat||0) - (job.pickup_lat||0), 2) + Math.pow((d.current_lng||0) - (job.pickup_lng||0), 2))
+  })).sort((a, b) => a.dist - b.dist);
+
+  sorted.forEach((item, i) => {
+    db.job_queue.push({
+      id: require('crypto').randomUUID(),
+      job_id: id,
+      driver_id: item.driver.id,
+      position: i,
+      status: 'pending',
+      created_at: new Date().toISOString()
+    });
+  });
+  saveDB();
+
+  startCascade(id);
+  res.json({ success: true, message: `Retrying with ${sorted.length} driver(s)` });
+});
+
 // Update driver availability
 app.post('/api/drivers/availability', (req, res) => {
   const { driverId, status } = req.body;
