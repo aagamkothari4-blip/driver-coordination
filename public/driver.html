@@ -535,7 +535,9 @@
         if (e.data && e.data.type === 'JOB_NOTIFICATION') {
           const job = e.data.job;
           if (!currentNotification && !activeJob) {
-            if (job.time_remaining > 0) {
+            if (declinedJobIds.has(job.id)) {
+              addToAvailableJobs(job);
+            } else if (job.time_remaining > 0) {
               showJobNotification(job, job.time_remaining);
             } else {
               addToAvailableJobs(job);
@@ -760,6 +762,7 @@
 
     function dismissAvailableJob(jobId) {
       delete availableJobs[jobId];
+      declinedJobIds.delete(jobId); // allow re-notification if manager retries
       renderAvailableJobs();
     }
 
@@ -851,7 +854,12 @@
         console.log('📨 WebSocket message:', data);
         
         if (data.type === 'JOB_NOTIFICATION') {
-          showJobNotification(data.job, data.timeout);
+          if (declinedJobIds.has(data.job.id)) {
+            // Already declined — silently add to Available Jobs, no popup
+            addToAvailableJobs(data.job);
+          } else {
+            showJobNotification(data.job, data.timeout);
+          }
         } else if (data.type === 'JOB_CANCELLED') {
           alert('Job cancelled by manager');
           resetActiveJob();
@@ -989,10 +997,16 @@
     }
 
     let notificationDeadline = null; // absolute timestamp when 30s window ends
+    const declinedJobIds = new Set(); // jobs this driver has explicitly declined this session
 
     function showJobNotification(job, timeout) {
       // Ignore if already showing this exact job
       if (currentNotification && currentNotification.id === job.id) return;
+      // Ignore if driver already declined this job — send straight to Available Jobs
+      if (declinedJobIds.has(job.id)) {
+        addToAvailableJobs(job);
+        return;
+      }
 
       currentNotification = job;
       const isMissed = job.is_missed || (timeout !== undefined && timeout <= 0);
@@ -1102,8 +1116,11 @@
       currentNotification = null;
       document.getElementById('jobNotification').classList.add('hidden');
 
-      // Tell server this driver declined — stops the cascade re-notifying this driver
       if (job) {
+        // Track locally so polling/WS never re-shows this as a popup
+        declinedJobIds.add(job.id);
+
+        // Tell server — marks queue item as declined, moves cascade to next driver
         try {
           await fetch(`${API_URL}/api/jobs/${job.id}/decline`, {
             method: 'POST',
@@ -1111,7 +1128,9 @@
             body: JSON.stringify({ driverId: currentDriver.id })
           });
         } catch(e) { console.warn('Decline API failed:', e); }
-        // Do NOT add to Available Jobs when explicitly declined
+
+        // Add to Available Jobs so driver can still accept if they change mind
+        addToAvailableJobs(job);
       }
     }
 
@@ -1505,12 +1524,15 @@
 
         const job = data.notification;
 
+        // Never re-show as popup if already declined
+        if (declinedJobIds.has(job.id)) {
+          addToAvailableJobs(job);
+          return;
+        }
         if (job.time_remaining > 0) {
-          // Still within time window — show popup
           console.log('📬 Found active notification, showing popup');
           showJobNotification(job, job.time_remaining);
         } else {
-          // Timer already expired — add to Available Jobs section instead
           console.log('📬 Found missed job, adding to Available Jobs');
           addToAvailableJobs(job);
         }
