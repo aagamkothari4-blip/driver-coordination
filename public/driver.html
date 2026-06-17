@@ -445,6 +445,14 @@
       </div>
     </div>
 
+    <!-- Available Jobs (missed/queued jobs driver can still accept) -->
+    <div id="availableJobsSection" class="hidden">
+      <div class="section" style="border-left:4px solid #fd7e14;background:#fff9f0;">
+        <h2 style="margin-bottom:12px;color:#e06800;">📬 Available Jobs</h2>
+        <div id="availableJobsList"></div>
+      </div>
+    </div>
+
     <!-- Pending/Recent Jobs -->
     <div id="jobHistorySection" class="section" style="margin-top:0;">
       <h2 style="margin-bottom:12px;">📋 Recent Jobs</h2>
@@ -520,8 +528,13 @@
       // Listen for messages from Service Worker (background job notifications)
       navigator.serviceWorker.addEventListener('message', e => {
         if (e.data && e.data.type === 'JOB_NOTIFICATION') {
+          const job = e.data.job;
           if (!currentNotification && !activeJob) {
-            showJobNotification(e.data.job, e.data.job.time_remaining || 30000);
+            if (job.time_remaining > 0) {
+              showJobNotification(job, job.time_remaining);
+            } else {
+              addToAvailableJobs(job);
+            }
           }
         }
       });
@@ -659,6 +672,96 @@
         alert('Login failed: ' + error.message);
       }
     });
+
+    // ===== AVAILABLE JOBS SECTION =====
+    let availableJobs = {}; // keyed by job id to avoid duplicates
+
+    function addToAvailableJobs(job) {
+      if (!job || !job.id) return;
+      availableJobs[job.id] = job;
+      renderAvailableJobs();
+    }
+
+    function renderAvailableJobs() {
+      const section = document.getElementById('availableJobsSection');
+      const list = document.getElementById('availableJobsList');
+      if (!section || !list) return;
+
+      const jobs = Object.values(availableJobs);
+      if (jobs.length === 0) {
+        section.classList.add('hidden');
+        return;
+      }
+
+      section.classList.remove('hidden');
+      list.innerHTML = jobs.map(job => `
+        <div id="avail-${job.id}" style="background:white;border:1px solid #ffd0a0;border-radius:8px;padding:14px;margin-bottom:10px;">
+          <div style="font-size:13px;color:#444;line-height:1.8;">
+            <div>📍 <strong>Pickup:</strong> ${job.pickup_address}</div>
+            <div>🏁 <strong>Dropoff:</strong> ${job.dropoff_address}</div>
+            <div>📏 ${job.estimated_distance ? job.estimated_distance.toFixed(1) + ' km' : 'N/A'} &nbsp;·&nbsp; 💰 ₹${job.estimated_earnings || Math.round((job.estimated_distance||0)*50)}</div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button onclick="acceptAvailableJob('${job.id}')"
+              style="flex:1;background:#28a745;color:white;border:none;padding:10px;border-radius:6px;font-size:15px;font-weight:600;cursor:pointer;">
+              ✅ Accept
+            </button>
+            <button onclick="dismissAvailableJob('${job.id}')"
+              style="flex:1;background:#eee;color:#555;border:none;padding:10px;border-radius:6px;font-size:15px;cursor:pointer;">
+              ✕ Dismiss
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function dismissAvailableJob(jobId) {
+      delete availableJobs[jobId];
+      renderAvailableJobs();
+    }
+
+    async function acceptAvailableJob(jobId) {
+      const job = availableJobs[jobId];
+      if (!job) return;
+
+      const btn = document.querySelector(`#avail-${jobId} button`);
+      if (btn) { btn.textContent = 'Accepting…'; btn.disabled = true; }
+
+      try {
+        const res = await fetch(`${API_URL}/api/jobs/${jobId}/accept`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ driverId: currentDriver.id })
+        });
+
+        if (res.ok) {
+          delete availableJobs[jobId];
+          renderAvailableJobs();
+
+          activeJob = {
+            id: job.id,
+            pickup_address: job.pickup_address,
+            pickup_lat: job.pickup_lat,
+            pickup_lng: job.pickup_lng,
+            dropoff_address: job.dropoff_address,
+            dropoff_lat: job.dropoff_lat,
+            dropoff_lng: job.dropoff_lng,
+            estimated_distance: job.estimated_distance || 0,
+            estimated_earnings: job.estimated_earnings || Math.round((job.estimated_distance||0)*50)
+          };
+          jobStatus = 'assigned';
+          showActiveJob();
+        } else {
+          const err = await res.json();
+          alert(err.error || 'Could not accept — job may have been taken by another driver');
+          delete availableJobs[jobId];
+          renderAvailableJobs();
+        }
+      } catch(e) {
+        alert('Failed to accept job: ' + e.message);
+        if (btn) { btn.textContent = '✅ Accept'; btn.disabled = false; }
+      }
+    }
 
     async function startSWPolling() {
       if (!('serviceWorker' in navigator)) return;
@@ -892,12 +995,12 @@
         if (el) el.textContent = remaining;
         if (remaining <= 0) {
           clearInterval(countdownInterval);
-          // Timer expired — don't auto-dismiss, just hide timer and keep job available
           notificationDeadline = null;
-          const countdownEl = document.getElementById('countdown');
-          if (countdownEl) countdownEl.style.display = 'none';
-          const notifHeader = document.querySelector('.notification-header h2');
-          if (notifHeader) notifHeader.textContent = '🚗 Job Available!';
+          // Timer expired — dismiss popup and move to Available Jobs section
+          const job = currentNotification;
+          document.getElementById('jobNotification').classList.add('hidden');
+          currentNotification = null;
+          if (job) addToAvailableJobs(job);
         }
       }, 500);
     }
@@ -929,6 +1032,9 @@
           };
           
           jobStatus = 'assigned';
+          // Clear all available jobs since we're now on a job
+          availableJobs = {};
+          renderAvailableJobs();
           showActiveJob();
           console.log('✅ Job accepted:', activeJob);
         } else {
@@ -943,8 +1049,11 @@
     function declineJob() {
       clearInterval(countdownInterval);
       notificationDeadline = null;
+      // Move to Available Jobs instead of just dismissing
+      const job = currentNotification;
       document.getElementById('jobNotification').classList.add('hidden');
       currentNotification = null;
+      if (job) addToAvailableJobs(job);
     }
 
     function showActiveJob() {
@@ -1302,9 +1411,18 @@
       try {
         const res = await fetch(`${API_URL}/api/driver/pending-notification?driverId=${currentDriver.id}`);
         const data = await res.json();
-        if (data.notification && data.notification.time_remaining > 0) {
-          console.log('📬 Found missed notification, showing it');
-          showJobNotification(data.notification, data.notification.time_remaining);
+        if (!data.notification) return;
+
+        const job = data.notification;
+
+        if (job.time_remaining > 0) {
+          // Still within time window — show popup
+          console.log('📬 Found active notification, showing popup');
+          showJobNotification(job, job.time_remaining);
+        } else {
+          // Timer already expired — add to Available Jobs section instead
+          console.log('📬 Found missed job, adding to Available Jobs');
+          addToAvailableJobs(job);
         }
       } catch(e) {
         console.warn('Could not check for missed notification:', e);
