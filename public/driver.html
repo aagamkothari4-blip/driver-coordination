@@ -1046,14 +1046,24 @@
       }
     }
 
-    function declineJob() {
+    async function declineJob() {
       clearInterval(countdownInterval);
       notificationDeadline = null;
-      // Move to Available Jobs instead of just dismissing
       const job = currentNotification;
-      document.getElementById('jobNotification').classList.add('hidden');
       currentNotification = null;
-      if (job) addToAvailableJobs(job);
+      document.getElementById('jobNotification').classList.add('hidden');
+
+      // Tell server this driver declined — stops the cascade re-notifying this driver
+      if (job) {
+        try {
+          await fetch(`${API_URL}/api/jobs/${job.id}/decline`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ driverId: currentDriver.id })
+          });
+        } catch(e) { console.warn('Decline API failed:', e); }
+        // Do NOT add to Available Jobs when explicitly declined
+      }
     }
 
     function showActiveJob() {

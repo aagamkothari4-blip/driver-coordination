@@ -337,6 +337,8 @@ app.get('/api/driver/pending-notification', (req, res) => {
     .sort((a, b) => new Date(b.notified_at) - new Date(a.notified_at)); // most recent first
 
   for (const item of queueItems) {
+    // Skip if driver explicitly declined
+    if (item.status === 'declined') continue;
     const job = db.jobs.find(j => j.id === item.job_id);
     // Job must still be pending/unassigned and not completed/cancelled
     if (!job || !['pending', 'unassigned'].includes(job.status)) continue;
