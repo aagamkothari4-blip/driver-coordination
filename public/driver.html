@@ -468,7 +468,12 @@
         <div id="etaPanel" style="display:none;background:#f0f7ff;border:1px solid #b3d4f5;border-radius:8px;padding:12px 16px;margin:12px 0;font-size:15px;">
           <div id="etaText" style="font-weight:600;color:#1a56a0;"></div>
           <div id="etaDistance" style="color:#555;margin-top:4px;font-size:13px;"></div>
+          <div id="earningsText" style="color:#28a745;margin-top:4px;font-size:14px;font-weight:600;"></div>
         </div>
+        <button id="navigateButton" class="btn" onclick="openGoogleMapsNavigation()"
+          style="background:#4285f4;color:white;width:100%;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:8px;">
+          🗺️ Open in Google Maps
+        </button>
         <button id="actionButton" class="btn btn-primary" onclick="handleJobAction()">Mark as Picked Up</button>
         <button id="cancelButton" class="btn btn-warning" onclick="showCancelConfirm()">Cancel This Job</button>
       </div>
@@ -673,6 +678,44 @@
       }
     });
 
+    // ===== NAVIGATION =====
+    function openGoogleMapsNavigation() {
+      if (!activeJob) return;
+
+      // Choose destination based on job stage
+      const isHeadingToPickup = (jobStatus === 'assigned');
+      const destLat = isHeadingToPickup ? activeJob.pickup_lat : activeJob.dropoff_lat;
+      const destLng = isHeadingToPickup ? activeJob.pickup_lng : activeJob.dropoff_lng;
+      const destLabel = isHeadingToPickup ? activeJob.pickup_address : activeJob.dropoff_address;
+
+      // If heading to pickup, set waypoint so Maps shows full route
+      let url;
+      if (isHeadingToPickup && activeJob.dropoff_lat) {
+        // Open with pickup as waypoint, dropoff as final destination
+        url = `https://www.google.com/maps/dir/?api=1` +
+          `&destination=${activeJob.dropoff_lat},${activeJob.dropoff_lng}` +
+          `&waypoints=${activeJob.pickup_lat},${activeJob.pickup_lng}` +
+          `&travelmode=driving`;
+      } else {
+        url = `https://www.google.com/maps/dir/?api=1` +
+          `&destination=${destLat},${destLng}` +
+          `&travelmode=driving`;
+      }
+
+      // Opens Google Maps app on mobile, Google Maps website on desktop
+      window.open(url, '_blank');
+    }
+
+    // Update navigate button label when job stage changes
+    function updateNavigateButton() {
+      const btn = document.getElementById('navigateButton');
+      if (!btn || !activeJob) return;
+      const isHeadingToPickup = (jobStatus === 'assigned');
+      btn.textContent = isHeadingToPickup
+        ? '🗺️ Navigate to Pickup'
+        : '🗺️ Navigate to Dropoff';
+    }
+
     // ===== AVAILABLE JOBS SECTION =====
     let availableJobs = {}; // keyed by job id to avoid duplicates
 
@@ -699,7 +742,7 @@
           <div style="font-size:13px;color:#444;line-height:1.8;">
             <div>📍 <strong>Pickup:</strong> ${job.pickup_address}</div>
             <div>🏁 <strong>Dropoff:</strong> ${job.dropoff_address}</div>
-            <div>📏 ${job.estimated_distance ? job.estimated_distance.toFixed(1) + ' km' : 'N/A'} &nbsp;·&nbsp; 💰 ₹${job.estimated_earnings || Math.round((job.estimated_distance||0)*50)}</div>
+            <div>📏 ${job.estimated_distance ? job.estimated_distance.toFixed(1) + ' km' : 'N/A'} &nbsp;·&nbsp; ⏱️ ~${job.estimated_duration_seconds ? Math.round(job.estimated_duration_seconds/60) : Math.round((job.estimated_distance||0)/30*60)} min &nbsp;·&nbsp; 💰 ₹${job.estimated_earnings || Math.round((job.estimated_distance||0)/30*100)}</div>
           </div>
           <div style="display:flex;gap:8px;margin-top:10px;">
             <button onclick="acceptAvailableJob('${job.id}')"
@@ -858,7 +901,7 @@
             <div style="font-size:13px;color:#444;line-height:1.6;">
               <div>📍 <strong>From:</strong> ${job.pickup_address}</div>
               <div>🏁 <strong>To:</strong> ${job.dropoff_address}</div>
-              ${job.estimated_distance ? `<div>📏 ${job.estimated_distance.toFixed(1)} km &nbsp;·&nbsp; 💰 ₹${Math.round(job.estimated_distance * 50)}</div>` : ''}
+              ${job.estimated_distance ? `<div>📏 ${job.estimated_distance.toFixed(1)} km &nbsp;·&nbsp; 💰 ₹${job.estimated_earnings || Math.round(job.estimated_distance/30*100)}</div>` : ''}
               <div style="color:#999;font-size:11px;margin-top:4px;">${new Date(job.created_at).toLocaleString('en-IN')}</div>
             </div>
           </div>
@@ -962,11 +1005,17 @@
         notificationDeadline = null; // no countdown for missed jobs
       }
 
+      const estEarnings = job.estimated_earnings ||
+        Math.round((job.estimated_distance || 0) / 30 * 100);
+      const estMins = job.estimated_duration_seconds
+        ? Math.round(job.estimated_duration_seconds / 60)
+        : Math.round((job.estimated_distance || 0) / 30 * 60);
       const html = `
         <p><strong>Pickup:</strong> ${job.pickup_address}</p>
         <p><strong>Dropoff:</strong> ${job.dropoff_address}</p>
         <p><strong>Distance:</strong> ${job.estimated_distance ? job.estimated_distance.toFixed(1) : 'N/A'} km</p>
-        <p><strong>Earnings:</strong> ₹${job.estimated_earnings || Math.round((job.estimated_distance || 0) * 50)}</p>
+        <p><strong>Est. Duration:</strong> ~${estMins} min</p>
+        <p><strong>Est. Earnings:</strong> ₹${estEarnings} <span style="color:#999;font-size:12px;">(₹100/hr)</span></p>
       `;
 
       document.getElementById('jobInfo').innerHTML = html;
@@ -1076,6 +1125,7 @@
       
       // Hide other sections
       document.getElementById('noJobSection').classList.add('hidden');
+      updateNavigateButton();
       
       // Show active job section
       document.getElementById('activeJobSection').classList.remove('hidden');
@@ -1135,13 +1185,42 @@
         };
 
         // If heading to pickup, also show dropoff marker
-        directionsService.route(request, (result, status) => {
+        directionsService.route(request, async (result, status) => {
           if (status === 'OK') {
             directionsRenderer.setDirections(result);
             const leg = result.routes[0].legs[0];
             document.getElementById('etaPanel').style.display = 'block';
             document.getElementById('etaText').textContent = `🕐 ETA to ${destLabel}: ${leg.duration.text}`;
             document.getElementById('etaDistance').textContent = `📏 Distance: ${leg.distance.text}`;
+
+            // If heading to pickup, also get full route duration (driver→pickup + pickup→dropoff)
+            // to calculate accurate earnings based on total journey time
+            if (isHeadingToPickup && activeJob.pickup_lat && activeJob.dropoff_lat) {
+              try {
+                // Get second leg duration (pickup→dropoff)
+                const leg2Result = await new Promise((resolve) => {
+                  directionsService.route({
+                    origin: new google.maps.LatLng(activeJob.pickup_lat, activeJob.pickup_lng),
+                    destination: new google.maps.LatLng(activeJob.dropoff_lat, activeJob.dropoff_lng),
+                    travelMode: google.maps.TravelMode.DRIVING,
+                  }, (r2, s2) => resolve(s2 === 'OK' ? r2 : null));
+                });
+                const totalSeconds = leg.duration.value +
+                  (leg2Result ? leg2Result.routes[0].legs[0].duration.value : 0);
+                const hours = totalSeconds / 3600;
+                const earnings = Math.max(30, Math.round(hours * 100));
+                document.getElementById('earningsText').textContent =
+                  `💰 Estimated Earnings: ₹${earnings} (${Math.round(hours * 60)} min total)`;
+                // Update server with real duration
+                fetch(`${API_URL}/api/jobs/${activeJob.id}/update-duration`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ durationSeconds: totalSeconds })
+                }).then(r => r.json()).then(d => {
+                  if (d.estimated_earnings) activeJob.estimated_earnings = d.estimated_earnings;
+                }).catch(() => {});
+              } catch(e) { console.warn('Could not calculate full route earnings:', e); }
+            }
           }
         });
 
@@ -1201,6 +1280,7 @@
           
           jobStatus = 'in_progress';
           updateActionButton();
+          updateNavigateButton();
           refreshRoute(); // switch map to show route to dropoff
           actionBtn.disabled = false;
           console.log('✅ Marked as picked up');

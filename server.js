@@ -228,7 +228,7 @@ function startCascade(jobId) {
         dropoff_lng: job.dropoff_lng,
         car_details: job.car_details,
         estimated_distance: job.estimated_distance,
-        estimated_earnings: Math.round(job.estimated_distance * 50) // ₹50 per km
+        estimated_earnings: job.estimated_earnings || Math.round((job.estimated_distance || 0) / 30 * 100)
       },
       timeout: 30000
     });
@@ -359,7 +359,8 @@ app.get('/api/driver/pending-notification', (req, res) => {
         dropoff_lng: job.dropoff_lng,
         car_details: job.car_details,
         estimated_distance: job.estimated_distance,
-        estimated_earnings: Math.round((job.estimated_distance || 0) * 50),
+        estimated_earnings: job.estimated_earnings || Math.round((job.estimated_distance || 0) / 30 * 100),
+        estimated_duration_seconds: job.estimated_duration_seconds || null,
         time_remaining: timeRemaining,
         is_missed: elapsed >= 30000 // flag so UI can show "missed" state
       }
@@ -367,6 +368,20 @@ app.get('/api/driver/pending-notification', (req, res) => {
   }
 
   res.json({ notification: null });
+});
+
+// Update job earnings based on real route duration from Directions API
+app.post('/api/jobs/:id/update-duration', (req, res) => {
+  const { durationSeconds } = req.body; // total route seconds from Google Directions
+  const job = db.jobs.find(j => j.id === req.params.id);
+  if (!job) return res.status(404).json({ error: 'Job not found' });
+
+  const hours = durationSeconds / 3600;
+  job.estimated_duration_seconds = durationSeconds;
+  job.estimated_earnings = Math.max(30, Math.round(hours * 100)); // min ₹30
+  saveDB();
+
+  res.json({ estimated_earnings: job.estimated_earnings, estimated_duration_seconds: durationSeconds });
 });
 
 // Get jobs for a specific driver (history)
@@ -482,6 +497,10 @@ app.post('/api/jobs', (req, res) => {
 
   const jobId = uuidv4();
   const estimatedDistance = calculateDistance(pickupLat, pickupLng, dropoffLat, dropoffLng);
+  // Estimate duration assuming 30km/h average city speed
+  // Will be updated with real Directions API data when driver accepts
+  const estimatedDurationHours = estimatedDistance / 30;
+  const estimatedEarnings = Math.round(estimatedDurationHours * 100); // ₹100/hr
 
   // Create job
   db.jobs.push({
@@ -500,6 +519,8 @@ app.post('/api/jobs', (req, res) => {
     car_details: carDetails,
     special_instructions: specialInstructions,
     estimated_distance: estimatedDistance,
+    estimated_duration_seconds: Math.round(estimatedDurationHours * 3600),
+    estimated_earnings: estimatedEarnings,
     created_at: new Date().toISOString(),
     assigned_at: null,
     started_at: null,
